@@ -75,7 +75,7 @@ export default function Settings() {
           <div key={group.group} style={{ marginBottom: '2rem' }}>
             <p className="section-label">{group.group}</p>
             {group.items.map(item => (
-              <label key={item.key} className="settings-row" onClick={() => toggle(item.key)}>
+              <label key={item.key} className="settings-row">
                 <input type="checkbox" checked={!!cfg[item.key]} onChange={() => toggle(item.key)} />
                 <div>
                   <div className="settings-label">{item.label}</div>
