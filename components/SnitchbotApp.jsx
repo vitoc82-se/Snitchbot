@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import PlayerTable from './PlayerTable';
 import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
@@ -59,11 +60,30 @@ export default function SnitchbotApp({ initialCode }) {
   const prepared   = players.filter(isPrepared);
   const unprepared = players.filter(p => !isPrepared(p));
 
+  const { data: session } = useSession();
+
   return (
     <>
       <Head><title>Snitchbot</title></Head>
       <div className="container">
-        <h1>Snitchbot</h1>
+        <div className="top-nav">
+          <div className="top-nav-left">
+            <h1 style={{ margin: 0 }}>Snitchbot</h1>
+          </div>
+          <div className="top-nav-right">
+            {session ? (
+              <>
+                <img src={session.user.image} alt="" className="nav-avatar" />
+                <span className="nav-username">{session.user.name}</span>
+                <button className="btn btn-sm" onClick={() => signOut()}>Sign out</button>
+              </>
+            ) : (
+              <button className="btn btn-sm" onClick={() => signIn('discord')}>
+                Login with Discord
+              </button>
+            )}
+          </div>
+        </div>
         <p className="subtitle">
           Check who forgot their consumables ·{' '}
           <Link href="/readme" className="subtle-link">How it works</Link>

@@ -188,3 +188,10 @@ code {
 }
 .admin-stat-number { font-size: 2.5rem; font-weight: bold; color: #f5c842; line-height: 1; }
 .admin-stat-label  { color: #666; font-size: .78rem; margin-top: .4rem; letter-spacing: .5px; text-transform: uppercase; }
+
+/* ── Top nav ─────────────────────────────────────────────────────────────── */
+.top-nav { display: flex; align-items: center; justify-content: space-between; padding: .75rem 0 1rem; border-bottom: 1px solid #1a1a1a; margin-bottom: 1.25rem; }
+.top-nav-right { display: flex; align-items: center; gap: .75rem; }
+.nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.nav-username { color: #bbb; font-size: .88rem; }
+.btn-sm { padding: .3rem .85rem; font-size: .82rem; }
