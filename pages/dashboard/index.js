@@ -93,19 +93,19 @@ export default function Dashboard() {
         )}
 
         {tab === 'players' && (
-          players.length === 0
-            ? <p style={{ color: '#666' }}>No player data yet. Save a report first.</p>
-            : (
-              <>
-                <div className="tab-row" style={{ marginBottom: '1rem' }}>
-                  {['all', 'tank', 'healer', 'dps'].map(r => (
-                    <button key={r}
-                      className={`tab${sortRole === r ? ' active' : ''}`}
-                      onClick={() => setSortRole(r)}>
-                      {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
-                    </button>
-                  ))}
-                </div>
+          <>
+            <div className="tab-row" style={{ marginBottom: '1rem' }}>
+              {['all', 'tank', 'healer', 'dps'].map(r => (
+                <button key={r}
+                  className={`tab${sortRole === r ? ' active' : ''}`}
+                  onClick={() => setSortRole(r)}>
+                  {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+            {players.length === 0
+              ? <p style={{ color: '#666' }}>No player data yet. Save a report first.</p>
+              : (<>
                 <table className="player-table">
                   <thead>
                     <tr>
@@ -144,7 +144,8 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </>
-            )
+            )}
+          </>
         )}
       </div>
     </>
