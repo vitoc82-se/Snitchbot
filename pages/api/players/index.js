@@ -1,11 +1,11 @@
-import { getSession } from 'next-auth/react';
+import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const session = await getSession({ req });
-  if (!session) return res.status(401).json({ error: 'Not logged in' });
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  if (!token?.dbId) return res.status(401).json({ error: 'Not logged in' });
 
   // Aggregate per player across all saved reports for this user
   const rows = await sql`
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
                  jsonb_array_elements(b->'attempts') a,
                  jsonb_array_elements(a->'players') pl)
          ) p
-    WHERE r.user_id = ${session.user.id}
+    WHERE r.user_id = ${token.dbId}
     GROUP BY p->>'name', p->>'class', p->>'role'
     ORDER BY avg_score DESC
   `;

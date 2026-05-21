@@ -67,8 +67,14 @@ export default function SnitchbotApp({ initialCode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: currentCode, title: results.title, data: results }),
       });
-      if (res.ok) setSavedCodes(prev => new Set([...prev, currentCode]));
-    } finally { setSaving(false); }
+      if (res.ok) {
+        setSavedCodes(prev => new Set([...prev, currentCode]));
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(`Save failed (${res.status}): ${body.error || 'unknown error'}`);
+      }
+    } catch (e) { setError(`Save failed: ${e.message}`); }
+    finally { setSaving(false); }
   };
 
   const didAutoAnalyze = useRef(false);
