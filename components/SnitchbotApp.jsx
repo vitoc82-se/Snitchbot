@@ -16,6 +16,8 @@ export default function SnitchbotApp({ initialCode }) {
   const [bossIndex,  setBossIndex]  = useState(0);
   const [attemptIdx, setAttemptIdx] = useState(0);
   const [view,       setView]       = useState('table');
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(false);
 
   useEffect(() => {
     if (!loading) { setLoadStep(0); return; }
@@ -27,7 +29,7 @@ export default function SnitchbotApp({ initialCode }) {
 
   const doAnalyze = async (url) => {
     if (!url?.trim()) return;
-    setLoading(true); setError(''); setResults(null);
+    setLoading(true); setError(''); setResults(null); setSaved(false);
     setBossIndex(0); setAttemptIdx(0); setView('table');
     try {
       const res  = await fetch('/api/analyze', {
@@ -43,6 +45,20 @@ export default function SnitchbotApp({ initialCode }) {
   };
 
   const analyze = () => doAnalyze(logUrl);
+
+  const saveReport = async () => {
+    const match = logUrl.match(/reports\/([A-Za-z0-9]+)/);
+    if (!match) return;
+    setSaving(true);
+    try {
+      await fetch('/api/reports/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: match[1], title: results.title, data: results }),
+      });
+      setSaved(true);
+    } finally { setSaving(false); }
+  };
 
   const didAutoAnalyze = useRef(false);
   useEffect(() => {
@@ -107,7 +123,14 @@ export default function SnitchbotApp({ initialCode }) {
 
         {results && (
           <>
-            <h2 className="report-title">{results.title}</h2>
+            <div className="report-title-row">
+              <h2 className="report-title" style={{ margin: 0 }}>{results.title}</h2>
+              {session && (
+                <button className="btn btn-sm" onClick={saveReport} disabled={saving || saved}>
+                  {saved ? 'Saved' : saving ? 'Saving...' : 'Save Report'}
+                </button>
+              )}
+            </div>
 
             <p className="section-label">Boss</p>
             <div className="tab-row">
