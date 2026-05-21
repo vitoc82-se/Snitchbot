@@ -1,11 +1,10 @@
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getSession } from 'next-auth/react';
 import sql from '../../../lib/db';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
-  const session = await getServerSession(req, res, authOptions);
+  const session = await getSession({ req });
   if (!session) return res.status(401).json({ error: 'Not logged in' });
 
   // Aggregate per player across all saved reports for this user
