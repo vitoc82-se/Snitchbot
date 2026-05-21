@@ -10,11 +10,21 @@ export default function Dashboard() {
   const [players, setPlayers]   = useState([]);
   const [tab, setTab]           = useState('reports');
 
-  useEffect(() => {
-    if (!session) return;
+  const loadData = () => {
     fetch('/api/reports').then(r => r.json()).then(setReports);
     fetch('/api/players').then(r => r.json()).then(setPlayers);
+  };
+
+  useEffect(() => {
+    if (!session) return;
+    loadData();
   }, [session]);
+
+  const deleteReport = async (id) => {
+    if (!confirm('Delete this report? Player history from it will also be removed.')) return;
+    await fetch(`/api/reports/${id}`, { method: 'DELETE' });
+    loadData();
+  };
 
   if (status === 'loading') return null;
   if (!session) return (
@@ -65,8 +75,14 @@ export default function Dashboard() {
                       <td style={{ color: '#666', fontSize: '.82rem' }}>
                         {new Date(r.created_at).toLocaleDateString()}
                       </td>
-                      <td>
+                      <td style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
                         <Link href={`/reports/${r.wcl_code}`} className="subtle-link">View →</Link>
+                        <button
+                          onClick={() => deleteReport(r.id)}
+                          style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
+                          title="Delete report">
+                          Delete
+                        </button>
                       </td>
                     </tr>
                   ))}

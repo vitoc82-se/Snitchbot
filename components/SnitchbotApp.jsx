@@ -17,7 +17,7 @@ export default function SnitchbotApp({ initialCode }) {
   const [attemptIdx, setAttemptIdx] = useState(0);
   const [view,       setView]       = useState('table');
   const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
+  const [savedCodes, setSavedCodes] = useState(new Set());
 
   useEffect(() => {
     if (!loading) { setLoadStep(0); return; }
@@ -27,9 +27,21 @@ export default function SnitchbotApp({ initialCode }) {
     return () => timers.forEach(clearTimeout);
   }, [loading]);
 
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    if (!session) return;
+    fetch('/api/reports').then(r => r.json()).then(rows => {
+      setSavedCodes(new Set(rows.map(r => r.wcl_code)));
+    });
+  }, [session]);
+
+  const currentCode = logUrl.match(/reports\/([A-Za-z0-9]+)/)?.[1];
+  const alreadySaved = currentCode && savedCodes.has(currentCode);
+
   const doAnalyze = async (url) => {
     if (!url?.trim()) return;
-    setLoading(true); setError(''); setResults(null); setSaved(false);
+    setLoading(true); setError(''); setResults(null);
     setBossIndex(0); setAttemptIdx(0); setView('table');
     try {
       const res  = await fetch('/api/analyze', {
@@ -47,16 +59,15 @@ export default function SnitchbotApp({ initialCode }) {
   const analyze = () => doAnalyze(logUrl);
 
   const saveReport = async () => {
-    const match = logUrl.match(/reports\/([A-Za-z0-9]+)/);
-    if (!match) return;
+    if (!currentCode || alreadySaved) return;
     setSaving(true);
     try {
-      await fetch('/api/reports/save', {
+      const res = await fetch('/api/reports/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: match[1], title: results.title, data: results }),
+        body: JSON.stringify({ code: currentCode, title: results.title, data: results }),
       });
-      setSaved(true);
+      if (res.ok) setSavedCodes(prev => new Set([...prev, currentCode]));
     } finally { setSaving(false); }
   };
 
@@ -75,8 +86,6 @@ export default function SnitchbotApp({ initialCode }) {
   const players = attempt?.players || [];
   const prepared   = players.filter(isPrepared);
   const unprepared = players.filter(p => !isPrepared(p));
-
-  const { data: session } = useSession();
 
   return (
     <>
@@ -127,8 +136,8 @@ export default function SnitchbotApp({ initialCode }) {
             <div className="report-title-row">
               <h2 className="report-title" style={{ margin: 0 }}>{results.title}</h2>
               {session && (
-                <button className="btn btn-sm" onClick={saveReport} disabled={saving || saved}>
-                  {saved ? 'Saved' : saving ? 'Saving...' : 'Save Report'}
+                <button className="btn btn-sm" onClick={saveReport} disabled={saving || alreadySaved}>
+                  {alreadySaved ? 'Saved' : saving ? 'Saving...' : 'Save Report'}
                 </button>
               )}
             </div>
