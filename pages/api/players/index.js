@@ -1,5 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
+import { score, maxScore } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -29,8 +30,8 @@ export default async function handler(req, res) {
       }
       const entry = playerMap[p.name];
       entry.appearances++;
-      entry.totalScore   += (p.score    || 0);
-      entry.totalMax     += (p.maxScore || 0);
+      entry.totalScore   += score(p);
+      entry.totalMax     += maxScore(p);
       if (p.prepared) entry.preparedCount++;
     }
   }

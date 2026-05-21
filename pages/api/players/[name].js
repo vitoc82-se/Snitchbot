@@ -1,5 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
+import { score as calcScore, maxScore as calcMax } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -20,7 +21,8 @@ export default async function handler(req, res) {
     const bosses = (r.data.bosses || []).map(b => {
       const playerAttempts = (b.attempts || []).map(a => {
         const p = (a.players || []).find(pl => pl.name === name);
-        return p ? { attempt: a.attempt, isKill: a.isKill, ...p } : null;
+        if (!p) return null;
+        return { attempt: a.attempt, isKill: a.isKill, ...p, score: calcScore(p), maxScore: calcMax(p) };
       }).filter(Boolean);
       return playerAttempts.length ? { name: b.name, attempts: playerAttempts } : null;
     }).filter(Boolean);
