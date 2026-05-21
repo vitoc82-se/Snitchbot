@@ -86,51 +86,59 @@ function RaidList({ raids, onSelect }) {
   );
 }
 
-function RaidDetail({ raid, name }) {
+function RaidDetail({ raid }) {
+  // One row per boss. Pre-fight consumables don't change between attempts,
+  // so use the first attempt. For pots, show max used across any attempt.
+  const rows = raid.bosses.map(boss => {
+    const first = boss.attempts[0];
+    const result = boss.attempts.some(a => a.isKill)
+      ? 'Kill'
+      : `${boss.attempts.length}W`;
+    const isKill = boss.attempts.some(a => a.isKill);
+    const potMax = {};
+    POT_COLS.forEach(c => {
+      potMax[c.key] = Math.max(...boss.attempts.map(a => a[c.key] || 0));
+    });
+    const s  = first.score    ?? score(first);
+    const mx = first.maxScore ?? maxScore(first);
+    return { boss: boss.name, result, isKill, first, potMax, s, mx };
+  });
+
   return (
     <div style={{ marginTop: '1.5rem' }}>
       <h2 style={{ fontSize: '1.1rem', color: '#f5c842', marginBottom: '1rem' }}>{raid.title || raid.wcl_code}</h2>
-      {raid.bosses.map(boss => (
-        <div key={boss.name} style={{ marginBottom: '1.5rem' }}>
-          <p className="section-label">{boss.name}</p>
-          <table className="player-table">
-            <thead>
-              <tr>
-                <th>Attempt</th>
-                {PRE_COLS.map(c => <th key={c.key} style={{ textAlign: 'center' }}>{c.label}</th>)}
-                {POT_COLS.map(c => <th key={c.key} style={{ textAlign: 'center' }}>{c.label}</th>)}
-                <th style={{ textAlign: 'center' }}>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {boss.attempts.map((a, i) => {
-                const s  = a.score    ?? score(a);
-                const mx = a.maxScore ?? maxScore(a);
-                return (
-                  <tr key={i}>
-                    <td style={{ color: a.isKill ? '#4caf50' : '#888', fontSize: '.85rem' }}>
-                      {a.isKill ? 'Kill' : `Wipe ${a.attempt}`}
-                    </td>
-                    {PRE_COLS.map(c => (
-                      <td key={c.key} style={{ textAlign: 'center', color: a[c.key] ? '#4caf50' : '#555' }}>
-                        {a[c.key] ? '✓' : '—'}
-                      </td>
-                    ))}
-                    {POT_COLS.map(c => (
-                      <td key={c.key} style={{ textAlign: 'center', color: a[c.key] > 0 ? '#4caf50' : '#555' }}>
-                        {a[c.key] > 0 ? a[c.key] : '—'}
-                      </td>
-                    ))}
-                    <td style={{ textAlign: 'center', color: s === mx ? '#4caf50' : s === 0 ? '#e05555' : '#f5c842' }}>
-                      {s}/{mx}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      ))}
+      <table className="player-table" style={{ fontSize: '.82rem' }}>
+        <thead>
+          <tr>
+            <th>Boss</th>
+            <th style={{ textAlign: 'center' }}>Result</th>
+            {PRE_COLS.map(c => <th key={c.key} style={{ textAlign: 'center' }}>{c.label}</th>)}
+            {POT_COLS.map(c => <th key={c.key} style={{ textAlign: 'center' }}>{c.label}</th>)}
+            <th style={{ textAlign: 'center' }}>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.boss}>
+              <td style={{ whiteSpace: 'nowrap' }}>{r.boss}</td>
+              <td style={{ textAlign: 'center', color: r.isKill ? '#4caf50' : '#888' }}>{r.result}</td>
+              {PRE_COLS.map(c => (
+                <td key={c.key} style={{ textAlign: 'center', color: r.first[c.key] ? '#4caf50' : '#e05555' }}>
+                  {r.first[c.key] ? '✓' : '✗'}
+                </td>
+              ))}
+              {POT_COLS.map(c => (
+                <td key={c.key} style={{ textAlign: 'center', color: r.potMax[c.key] > 0 ? '#4caf50' : '#555' }}>
+                  {r.potMax[c.key] > 0 ? r.potMax[c.key] : '—'}
+                </td>
+              ))}
+              <td style={{ textAlign: 'center', color: r.s === r.mx ? '#4caf50' : r.s === 0 ? '#e05555' : '#f5c842', fontWeight: 'bold' }}>
+                {r.s}/{r.mx}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
