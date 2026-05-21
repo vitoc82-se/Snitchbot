@@ -6,7 +6,7 @@ import PlayerTable from './PlayerTable';
 import PlayerPanel from './PlayerModal';
 import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
-import { isPrepared, missingList, classColor } from '../lib/scoring';
+import { isPrepared, missingList, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 
 export default function SnitchbotApp({ initialCode }) {
   const [logUrl,     setLogUrl]     = useState('');
@@ -21,6 +21,7 @@ export default function SnitchbotApp({ initialCode }) {
   const [savedCodes,  setSavedCodes] = useState(new Set());
   const [tableView,   setTableView]  = useState('pre');
   const [panelPlayer, setPanelPlayer] = useState(null);
+  const [mandatory,   setMandatory]  = useState(DEFAULT_MANDATORY);
 
   useEffect(() => {
     if (!loading) { setLoadStep(0); return; }
@@ -37,6 +38,7 @@ export default function SnitchbotApp({ initialCode }) {
     fetch('/api/reports').then(r => r.json()).then(rows => {
       setSavedCodes(new Set(rows.map(r => r.wcl_code)));
     });
+    fetch('/api/settings/buffs').then(r => r.json()).then(setMandatory);
   }, [session]);
 
   const currentCode = logUrl.match(/reports\/([A-Za-z0-9]+)/)?.[1];
@@ -93,8 +95,8 @@ export default function SnitchbotApp({ initialCode }) {
   const boss    = results?.bosses?.[bossIndex];
   const attempt = boss?.attempts?.[attemptIdx];
   const players = attempt?.players || [];
-  const prepared   = players.filter(isPrepared);
-  const unprepared = players.filter(p => !isPrepared(p));
+  const prepared   = players.filter(p => isPrepared(p, mandatory));
+  const unprepared = players.filter(p => !isPrepared(p, mandatory));
 
   return (
     <>
@@ -110,6 +112,7 @@ export default function SnitchbotApp({ initialCode }) {
                 <img src={session.user.image} alt="" className="nav-avatar" />
                 <span className="nav-username">{session.user.name}</span>
                 <Link href="/dashboard" className="btn btn-sm">Dashboard</Link>
+                <Link href="/settings" className="btn btn-sm">Settings</Link>
                 <button className="btn btn-sm" onClick={() => signOut()}>Sign out</button>
               </>
             ) : (
@@ -204,7 +207,7 @@ export default function SnitchbotApp({ initialCode }) {
                   <button className={`tab${tableView === 'pre' ? ' active' : ''}`} onClick={() => setTableView('pre')}>Pre-Fight</button>
                   <button className={`tab${tableView === 'combat' ? ' active' : ''}`} onClick={() => setTableView('combat')}>In-Combat</button>
                 </div>
-                <PlayerTable players={players} tableView={tableView} onPlayerClick={p => setPanelPlayer(p)} />
+                <PlayerTable players={players} tableView={tableView} mandatory={mandatory} onPlayerClick={p => setPanelPlayer(p)} />
                 {unprepared.length > 0 && (
                   <div className="summary">
                     <h3>Slackers</h3>
@@ -213,7 +216,7 @@ export default function SnitchbotApp({ initialCode }) {
                         <li key={p.name}>
                           <strong style={{ color: classColor(p.class) }}>{p.name}</strong>
                           <span className="missing-tags">
-                            {missingList(p).map(m => <span key={m} className="tag">{m}</span>)}
+                            {missingList(p, mandatory).map(m => <span key={m} className="tag">{m}</span>)}
                           </span>
                         </li>
                       ))}
@@ -225,7 +228,7 @@ export default function SnitchbotApp({ initialCode }) {
           </>
         )}
         {panelPlayer && (
-          <PlayerPanel player={panelPlayer} bosses={results.bosses} onClose={() => setPanelPlayer(null)} />
+          <PlayerPanel player={panelPlayer} bosses={results.bosses} mandatory={mandatory} onClose={() => setPanelPlayer(null)} />
         )}
         <footer className="site-footer">
           Built by <strong>Vitok</strong> · Thunderstrike EU &nbsp;·&nbsp;

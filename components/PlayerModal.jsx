@@ -1,8 +1,8 @@
 import { POT_COLS } from '../lib/constants';
-import { relevantPots, score, maxScore, classColor } from '../lib/scoring';
+import { relevantPots, score, maxScore, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
 
-export default function PlayerPanel({ player, bosses, onClose }) {
+export default function PlayerPanel({ player, bosses, mandatory = DEFAULT_MANDATORY, onClose }) {
   if (!player) return null;
   const color = classColor(player.class);
   const rel   = relevantPots(player);
@@ -57,7 +57,7 @@ export default function PlayerPanel({ player, bosses, onClose }) {
                           {POT_COLS.filter(c => rel.has(c.key)).map(c => (
                             <Cell key={c.key} value={p[c.key]} />
                           ))}
-                          <td className="center modal-score">{score(p)}/{maxScore(p)}</td>
+                          <td className="center modal-score">{score(p, mandatory)}/{maxScore(p, mandatory)}</td>
                         </tr>
                       ))}
                     </tbody>

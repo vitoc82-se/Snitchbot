@@ -1,6 +1,6 @@
 import { useState, Fragment } from 'react';
 import { CLASS_ORDER, POT_COLS } from '../lib/constants';
-import { isPrepared, isPotRelevant, score, maxScore, classColor } from '../lib/scoring';
+import { isPrepared, isPotRelevant, score, maxScore, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
 
 const PRE_COLS_DEF = [
@@ -11,7 +11,7 @@ const PRE_COLS_DEF = [
   { key: 'scrolls',         label: 'Scrolls'       },
 ];
 
-export default function PlayerTable({ players, tableView = 'pre', onPlayerClick }) {
+export default function PlayerTable({ players, tableView = 'pre', mandatory = DEFAULT_MANDATORY, onPlayerClick }) {
   const [expanded, setExpanded] = useState({});
 
   const groups = {};
@@ -48,7 +48,7 @@ export default function PlayerTable({ players, tableView = 'pre', onPlayerClick 
             const color   = classColor(cls);
             const isOpen  = !!expanded[cls];
             const members = groups[cls] || [];
-            const ready   = members.filter(isPrepared).length;
+            const ready   = members.filter(p => isPrepared(p, mandatory)).length;
 
             return (
               <Fragment key={cls}>
@@ -63,13 +63,13 @@ export default function PlayerTable({ players, tableView = 'pre', onPlayerClick 
                   .slice()
                   .sort((a, b) => isPrepared(b) - isPrepared(a))
                   .map(p => {
-                    const s  = score(p);
-                    const mx = maxScore(p);
+                    const s  = score(p, mandatory);
+                    const mx = maxScore(p, mandatory);
                     const pct = mx ? s / mx : 0;
                     const scoreColor = pct >= 1 ? '#4caf50' : pct >= 0.6 ? '#f5c842' : '#e05555';
                     return (
                       <tr key={p.name}
-                        className={isPrepared(p) ? 'row-good' : 'row-bad'}
+                        className={isPrepared(p, mandatory) ? 'row-good' : 'row-bad'}
                         style={{ display: isOpen ? '' : 'none' }}>
                         <td className="player-name" style={{ color }}>
                           {onPlayerClick
