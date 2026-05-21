@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useSession, signIn } from 'next-auth/react';
-import { DEFAULT_MANDATORY } from './api/settings/buffs';
+import { DEFAULT_MANDATORY } from '../lib/scoring';
 
 const SETTINGS_DEF = [
   {

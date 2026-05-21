@@ -1,13 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
-
-export const DEFAULT_MANDATORY = {
-  flask:    true,
-  guardian: true,
-  food:     true,
-  pots:     true,
-  weapon:   false,
-};
+import { DEFAULT_MANDATORY } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
