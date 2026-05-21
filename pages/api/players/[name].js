@@ -9,23 +9,26 @@ export default async function handler(req, res) {
 
   const { name } = req.query;
 
-  const rows = await sql`
-    SELECT
-      r.id,
-      r.wcl_code,
-      r.title,
-      r.created_at,
-      p AS player
-    FROM reports r,
-         jsonb_array_elements(
-           (SELECT jsonb_agg(pl)
-            FROM jsonb_array_elements(r.data->'bosses') b,
-                 jsonb_array_elements(b->'attempts') a,
-                 jsonb_array_elements(a->'players') pl)
-         ) p
-    WHERE r.user_id = ${token.dbId}
-      AND p->>'name' = ${name}
-    ORDER BY r.created_at DESC
+  const reports = await sql`
+    SELECT id, wcl_code, title, created_at, data
+    FROM reports
+    WHERE user_id = ${token.dbId}
+    ORDER BY created_at DESC
   `;
-  res.json(rows);
+
+  const result = reports.map(r => {
+    const bosses = (r.data.bosses || []).map(b => {
+      const playerAttempts = (b.attempts || []).map(a => {
+        const p = (a.players || []).find(pl => pl.name === name);
+        return p ? { attempt: a.attempt, isKill: a.isKill, ...p } : null;
+      }).filter(Boolean);
+      return playerAttempts.length ? { name: b.name, attempts: playerAttempts } : null;
+    }).filter(Boolean);
+
+    return bosses.length
+      ? { id: r.id, wcl_code: r.wcl_code, title: r.title, created_at: r.created_at, bosses }
+      : null;
+  }).filter(Boolean);
+
+  res.json(result);
 }

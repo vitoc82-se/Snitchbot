@@ -9,6 +9,7 @@ export default function Dashboard() {
   const [reports, setReports]   = useState([]);
   const [players, setPlayers]   = useState([]);
   const [tab, setTab]           = useState('reports');
+  const [sortRole, setSortRole] = useState('all');
 
   const loadData = () => {
     fetch('/api/reports').then(r => r.json()).then(setReports);
@@ -95,41 +96,54 @@ export default function Dashboard() {
           players.length === 0
             ? <p style={{ color: '#666' }}>No player data yet. Save a report first.</p>
             : (
-              <table className="player-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Class</th>
-                    <th>Role</th>
-                    <th style={{ textAlign: 'center' }}>Appearances</th>
-                    <th style={{ textAlign: 'center' }}>Avg Score</th>
-                    <th style={{ textAlign: 'center' }}>Prepared</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {players.map(p => (
-                    <tr key={p.name}>
-                      <td>
-                        <Link href={`/dashboard/players/${encodeURIComponent(p.name)}`}
-                          style={{ color: classColor(p.class), textDecoration: 'none', fontWeight: 'bold' }}>
-                          {p.name}
-                        </Link>
-                      </td>
-                      <td style={{ color: classColor(p.class) }}>{p.class}</td>
-                      <td style={{ color: '#888', fontSize: '.85rem' }}>{p.role}</td>
-                      <td style={{ textAlign: 'center', color: '#888' }}>{p.appearances}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <span style={{ color: scoreColor(p.avg_score, p.avg_max) }}>
-                          {p.avg_score}/{p.avg_max}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'center', color: '#888' }}>
-                        {p.prepared_count}/{p.appearances}
-                      </td>
-                    </tr>
+              <>
+                <div className="tab-row" style={{ marginBottom: '1rem' }}>
+                  {['all', 'tank', 'healer', 'dps'].map(r => (
+                    <button key={r}
+                      className={`tab${sortRole === r ? ' active' : ''}`}
+                      onClick={() => setSortRole(r)}>
+                      {r === 'all' ? 'All' : r.charAt(0).toUpperCase() + r.slice(1)}
+                    </button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+                <table className="player-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>Class</th>
+                      <th>Role</th>
+                      <th style={{ textAlign: 'center' }}>Raids</th>
+                      <th style={{ textAlign: 'center' }}>Avg Score</th>
+                      <th style={{ textAlign: 'center' }}>Prepared</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {players
+                      .filter(p => sortRole === 'all' || p.role === sortRole)
+                      .map(p => (
+                        <tr key={p.name}>
+                          <td>
+                            <Link href={`/dashboard/players/${encodeURIComponent(p.name)}`}
+                              style={{ color: classColor(p.class), textDecoration: 'none', fontWeight: 'bold' }}>
+                              {p.name}
+                            </Link>
+                          </td>
+                          <td style={{ color: classColor(p.class) }}>{p.class}</td>
+                          <td style={{ color: '#888', fontSize: '.85rem' }}>{p.role}</td>
+                          <td style={{ textAlign: 'center', color: '#888' }}>{p.appearances}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span style={{ color: scoreColor(p.avg_score, p.avg_max) }}>
+                              {p.avg_score}/{p.avg_max}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center', color: '#888' }}>
+                            {p.prepared_count}/{p.appearances}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </>
             )
         )}
       </div>

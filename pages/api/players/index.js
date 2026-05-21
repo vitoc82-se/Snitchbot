@@ -7,26 +7,43 @@ export default async function handler(req, res) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token?.dbId) return res.status(401).json({ error: 'Not logged in' });
 
-  // Aggregate per player across all saved reports for this user
-  const rows = await sql`
-    SELECT
-      p->>'name'                          AS name,
-      p->>'class'                         AS class,
-      p->>'role'                          AS role,
-      COUNT(*)::int                       AS appearances,
-      ROUND(AVG((p->>'score')::numeric), 2) AS avg_score,
-      ROUND(AVG((p->>'maxScore')::numeric), 2) AS avg_max,
-      SUM(CASE WHEN (p->>'prepared')::boolean THEN 1 ELSE 0 END)::int AS prepared_count
-    FROM reports r,
-         jsonb_array_elements(
-           (SELECT jsonb_agg(pl)
-            FROM jsonb_array_elements(r.data->'bosses') b,
-                 jsonb_array_elements(b->'attempts') a,
-                 jsonb_array_elements(a->'players') pl)
-         ) p
-    WHERE r.user_id = ${token.dbId}
-    GROUP BY p->>'name', p->>'class', p->>'role'
-    ORDER BY avg_score DESC
+  const reports = await sql`
+    SELECT id, data FROM reports WHERE user_id = ${token.dbId}
   `;
+
+  // One entry per (player, report) — consumables don't change within a raid
+  const playerMap = {};
+  for (const r of reports) {
+    const seen = {}; // name -> first player snapshot in this report
+    for (const boss of (r.data.bosses || [])) {
+      for (const attempt of (boss.attempts || [])) {
+        for (const p of (attempt.players || [])) {
+          if (!seen[p.name]) seen[p.name] = p;
+        }
+      }
+    }
+    for (const p of Object.values(seen)) {
+      if (!playerMap[p.name]) {
+        playerMap[p.name] = { name: p.name, class: p.class, role: p.role,
+          appearances: 0, totalScore: 0, totalMax: 0, preparedCount: 0 };
+      }
+      const entry = playerMap[p.name];
+      entry.appearances++;
+      entry.totalScore   += (p.score    || 0);
+      entry.totalMax     += (p.maxScore || 0);
+      if (p.prepared) entry.preparedCount++;
+    }
+  }
+
+  const rows = Object.values(playerMap).map(e => ({
+    name:           e.name,
+    class:          e.class,
+    role:           e.role,
+    appearances:    e.appearances,
+    avg_score:      e.appearances ? +(e.totalScore / e.appearances).toFixed(2) : 0,
+    avg_max:        e.appearances ? +(e.totalMax   / e.appearances).toFixed(2) : 0,
+    prepared_count: e.preparedCount,
+  })).sort((a, b) => b.avg_score - a.avg_score);
+
   res.json(rows);
 }
