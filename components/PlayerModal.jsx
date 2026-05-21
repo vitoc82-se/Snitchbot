@@ -2,23 +2,23 @@ import { POT_COLS } from '../lib/constants';
 import { relevantPots, score, maxScore, classColor } from '../lib/scoring';
 import Cell from './Cell';
 
-// Per-player breakdown modal showing every boss/attempt in the log.
-// Receives the resolved player object directly so we don't re-scan bosses inside.
-export default function PlayerModal({ player, bosses, onClose }) {
+export default function PlayerPanel({ player, bosses, onClose }) {
+  if (!player) return null;
   const color = classColor(player.class);
   const rel   = relevantPots(player);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
+    <>
+      <div className="panel-overlay" onClick={onClose} />
+      <div className="player-panel open">
+        <div className="panel-header">
           <span className="modal-player-name" style={{ color }}>
             {player.name}
             <span className="modal-class"> — {player.class}</span>
           </span>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
-        <div className="modal-body">
+        <div className="panel-body">
           {bosses.map(boss => {
             const rows = boss.attempts
               .map(a => ({ attempt: a, p: a.players.find(x => x.name === player.name) }))
@@ -33,8 +33,8 @@ export default function PlayerModal({ player, bosses, onClose }) {
                       <tr>
                         <th className="th-attempt">Attempt</th>
                         <th>Flask</th>
-                        <th>Battle Elix</th>
-                        <th>Guard. Elix</th>
+                        <th>Battle</th>
+                        <th>Guard.</th>
                         <th>Food</th>
                         {POT_COLS.filter(c => rel.has(c.key)).map(c => (
                           <th key={c.key}>{c.label}</th>
@@ -53,13 +53,9 @@ export default function PlayerModal({ player, bosses, onClose }) {
                           <Cell value={p.flask} na={p.battle_elixir && p.guardian_elixir} />
                           <Cell value={p.battle_elixir}   na={p.flask} />
                           <Cell value={p.guardian_elixir} na={p.flask} />
-                          <td className="center">
-                            <span className={p.food ? 'check' : 'cross'}>{p.food ? '✓' : '✗'}</span>
-                          </td>
+                          <Cell value={p.food} />
                           {POT_COLS.filter(c => rel.has(c.key)).map(c => (
-                            <td key={c.key} className="center">
-                              <span className={p[c.key] ? 'check' : 'cross'}>{p[c.key] ? '✓' : '✗'}</span>
-                            </td>
+                            <Cell key={c.key} value={p[c.key]} />
                           ))}
                           <td className="center modal-score">{score(p)}/{maxScore(p)}</td>
                         </tr>
@@ -72,6 +68,6 @@ export default function PlayerModal({ player, bosses, onClose }) {
           })}
         </div>
       </div>
-    </div>
+    </>
   );
 }

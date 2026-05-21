@@ -195,3 +195,13 @@ code {
 .nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
 .nav-username { color: #bbb; font-size: .88rem; }
 .btn-sm { padding: .3rem .85rem; font-size: .82rem; }
+
+/* ── Player slide-in panel ───────────────────────────────────────────────── */
+.player-panel { position: fixed; top: 0; right: 0; width: 500px; max-width: 100vw; height: 100vh; background: #111; border-left: 1px solid #222; z-index: 200; overflow-y: auto; transform: translateX(100%); transition: transform .25s ease; }
+.player-panel.open { transform: translateX(0); }
+.panel-overlay { position: fixed; inset: 0; z-index: 199; background: rgba(0,0,0,.4); }
+.panel-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid #222; position: sticky; top: 0; background: #111; }
+.panel-body { padding: 1rem 1.25rem; }
+.player-name-btn { background: none; border: none; cursor: pointer; font: inherit; padding: 0; text-align: left; }
+.player-name-btn:hover { text-decoration: underline; }
+.score-badge { font-size: .82rem; font-weight: bold; letter-spacing: .5px; }

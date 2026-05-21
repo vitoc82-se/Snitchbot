@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import PlayerTable from './PlayerTable';
+import PlayerPanel from './PlayerModal';
 import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
 import { isPrepared, missingList, classColor } from '../lib/scoring';
@@ -16,8 +17,10 @@ export default function SnitchbotApp({ initialCode }) {
   const [bossIndex,  setBossIndex]  = useState(0);
   const [attemptIdx, setAttemptIdx] = useState(0);
   const [view,       setView]       = useState('table');
-  const [saving,     setSaving]     = useState(false);
-  const [savedCodes, setSavedCodes] = useState(new Set());
+  const [saving,      setSaving]     = useState(false);
+  const [savedCodes,  setSavedCodes] = useState(new Set());
+  const [tableView,   setTableView]  = useState('pre');
+  const [panelPlayer, setPanelPlayer] = useState(null);
 
   useEffect(() => {
     if (!loading) { setLoadStep(0); return; }
@@ -197,7 +200,11 @@ export default function SnitchbotApp({ initialCode }) {
                     {unprepared.length > 0 && `${unprepared.length} missing`}
                   </div>
                 </div>
-                <PlayerTable players={players} />
+                <div className="tab-row" style={{ marginTop: '.75rem', marginBottom: '.5rem' }}>
+                  <button className={`tab${tableView === 'pre' ? ' active' : ''}`} onClick={() => setTableView('pre')}>Pre-Fight</button>
+                  <button className={`tab${tableView === 'combat' ? ' active' : ''}`} onClick={() => setTableView('combat')}>In-Combat</button>
+                </div>
+                <PlayerTable players={players} tableView={tableView} onPlayerClick={p => setPanelPlayer(p)} />
                 {unprepared.length > 0 && (
                   <div className="summary">
                     <h3>Slackers</h3>
@@ -216,6 +223,9 @@ export default function SnitchbotApp({ initialCode }) {
               </>
             )}
           </>
+        )}
+        {panelPlayer && (
+          <PlayerPanel player={panelPlayer} bosses={results.bosses} onClose={() => setPanelPlayer(null)} />
         )}
         <footer className="site-footer">
           Built by <strong>Vitok</strong> · Thunderstrike EU &nbsp;·&nbsp;
