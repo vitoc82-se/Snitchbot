@@ -91,6 +91,7 @@ export default function SnitchbotApp({ initialCode }) {
               <>
                 <img src={session.user.image} alt="" className="nav-avatar" />
                 <span className="nav-username">{session.user.name}</span>
+                <Link href="/dashboard" className="btn btn-sm">Dashboard</Link>
                 <button className="btn btn-sm" onClick={() => signOut()}>Sign out</button>
               </>
             ) : (
