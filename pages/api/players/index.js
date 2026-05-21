@@ -1,6 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
-import { score, maxScore } from '../../../lib/scoring';
+import { score, maxScore, isPrepared } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       entry.appearances++;
       entry.totalScore   += score(p);
       entry.totalMax     += maxScore(p);
-      if (p.prepared) entry.preparedCount++;
+      if (isPrepared(p)) entry.preparedCount++;
     }
   }
 
