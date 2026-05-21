@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth/next';
-import authOptions from '../auth/[...nextauth]';
+import { authOptions } from '../auth/[...nextauth]';
 import sql from '../../../lib/db';
 
 export default async function handler(req, res) {
