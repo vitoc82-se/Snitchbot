@@ -125,6 +125,8 @@ export default function SnitchbotApp({ initialCode }) {
         <p className="subtitle">
           Check who forgot their consumables ·{' '}
           <Link href="/readme" className="subtle-link">How it works</Link>
+          {' '}·{' '}
+          <Link href="/suggest" className="subtle-link">Suggest a consumable</Link>
         </p>
 
         <div className="input-row">

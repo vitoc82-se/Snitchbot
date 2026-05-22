@@ -2,27 +2,31 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 
+const STATUS_COLORS = { pending: '#f5c842', added: '#7ec87e', rejected: '#e05c5c' };
+
 export default function AdminPage() {
-  const [password, setPassword] = useState('');
-  const [data,     setData]     = useState(null);
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [password,    setPassword]    = useState('');
+  const [data,        setData]        = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [error,       setError]       = useState('');
+  const [loading,     setLoading]     = useState(false);
 
   const login = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin?password=${encodeURIComponent(password)}`);
-      const json = await res.json().catch(() => null);
-      if (res.status === 401) { setError('Wrong password.'); return; }
-      if (!res.ok) {
-        setError(`Server error ${res.status}: ${json?.error || 'unknown'}`);
-        return;
-      }
+      const [statsRes, suggestRes] = await Promise.all([
+        fetch(`/api/admin?password=${encodeURIComponent(password)}`),
+        fetch(`/api/suggestions?password=${encodeURIComponent(password)}`),
+      ]);
+      const json = await statsRes.json().catch(() => null);
+      if (statsRes.status === 401) { setError('Wrong password.'); return; }
+      if (!statsRes.ok) { setError(`Server error ${statsRes.status}: ${json?.error || 'unknown'}`); return; }
       setData(json);
-    } catch (err) { setError(`Failed to load stats: ${err.message}`); }
-    finally   { setLoading(false); }
+      if (suggestRes.ok) setSuggestions(await suggestRes.json().catch(() => []));
+    } catch (err) { setError(`Failed to load: ${err.message}`); }
+    finally       { setLoading(false); }
   };
 
   return (
@@ -57,6 +61,10 @@ export default function AdminPage() {
               <div className="admin-stat-card">
                 <div className="admin-stat-number">{data.uniqueUsers}</div>
                 <div className="admin-stat-label">Unique Visitors</div>
+              </div>
+              <div className="admin-stat-card">
+                <div className="admin-stat-number">{suggestions.length}</div>
+                <div className="admin-stat-label">Suggestions</div>
               </div>
             </div>
 
@@ -95,6 +103,57 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+
+            <h3 className="pot-leaderboard-title" style={{ marginTop: '2.5rem' }}>
+              Consumable Suggestions — {suggestions.length} total
+            </h3>
+            {suggestions.length === 0 ? (
+              <p style={{ color: '#555', fontSize: '.85rem' }}>No suggestions yet.</p>
+            ) : (
+              <div style={{ marginTop: '.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {suggestions.map(s => (
+                  <div key={s.id} className="suggest-admin-card">
+                    <div className="suggest-admin-header">
+                      <span className="suggest-admin-id">ID: <strong>{s.spell_item_id}</strong></span>
+                      {s.category && <span className="suggest-admin-cat">{s.category}</span>}
+                      <span className="suggest-admin-status" style={{ color: STATUS_COLORS[s.status] || '#888' }}>
+                        {s.status}
+                      </span>
+                      <span style={{ color: '#555', fontSize: '.78rem', marginLeft: 'auto' }}>
+                        {new Date(s.created_at).toISOString().replace('T', ' ').slice(0, 16)} UTC
+                        {s.submitted_by && ` · ${s.submitted_by}`}
+                      </span>
+                    </div>
+                    {s.class_spec && (
+                      <div className="suggest-admin-row">
+                        <span className="suggest-admin-lbl">Class/Spec</span> {s.class_spec}
+                      </div>
+                    )}
+                    {s.wowhead_link && (
+                      <div className="suggest-admin-row">
+                        <span className="suggest-admin-lbl">Wowhead</span>{' '}
+                        <a href={s.wowhead_link} target="_blank" rel="noreferrer" style={{ color: '#f5c842', textDecoration: 'none' }}>
+                          {s.wowhead_link}
+                        </a>
+                      </div>
+                    )}
+                    {s.log_example && (
+                      <div className="suggest-admin-row">
+                        <span className="suggest-admin-lbl">Log</span>{' '}
+                        {/^[A-Za-z0-9]+$/.test(s.log_example.trim()) ? (
+                          <a href={`https://fresh.warcraftlogs.com/reports/${s.log_example.trim()}`} target="_blank" rel="noreferrer" style={{ color: '#f5c842', textDecoration: 'none' }}>
+                            {s.log_example.trim()}
+                          </a>
+                        ) : s.log_example}
+                      </div>
+                    )}
+                    <div className="suggest-admin-row">
+                      <span className="suggest-admin-lbl">Reason</span> {s.motivation}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 

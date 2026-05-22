@@ -232,3 +232,20 @@ code {
 .dev-arch-label { font-size: .85rem; font-weight: bold; color: #ddd; }
 .dev-arch-sub { font-size: .73rem; color: #555; margin-top: .2rem; line-height: 1.5; }
 .dev-arch-arrow { color: #444; font-size: 1rem; font-family: monospace; }
+
+/* ── Suggest page ───────────────────────────────────────────────────────── */
+.suggest-field { margin-bottom: 1.1rem; }
+.suggest-label { display: block; color: #bbb; font-size: .85rem; margin-bottom: .35rem; }
+.suggest-required { color: #f5c842; }
+.suggest-input { width: 100%; background: #111; border: 1px solid #2a2a2a; border-radius: 4px; color: #ddd; font-size: .9rem; padding: .5rem .75rem; box-sizing: border-box; font-family: inherit; }
+.suggest-input:focus { outline: none; border-color: #444; }
+.suggest-textarea { resize: vertical; min-height: 72px; }
+.suggest-hint { color: #555; font-size: .78rem; margin-top: .25rem; }
+.suggest-reset-btn { background: none; border: none; color: #f5c842; cursor: pointer; font: inherit; padding: 0; }
+.suggest-admin-card { background: #111; border: 1px solid #1e1e1e; border-radius: 6px; padding: .9rem 1.1rem; font-size: .85rem; color: #bbb; }
+.suggest-admin-header { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; flex-wrap: wrap; }
+.suggest-admin-id { color: #ddd; }
+.suggest-admin-cat { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 3px; padding: 1px 7px; color: #888; font-size: .78rem; }
+.suggest-admin-status { font-size: .78rem; font-weight: bold; letter-spacing: .4px; text-transform: uppercase; }
+.suggest-admin-row { margin-bottom: .3rem; }
+.suggest-admin-lbl { color: #555; font-size: .78rem; min-width: 65px; display: inline-block; }
