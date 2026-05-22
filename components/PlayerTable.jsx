@@ -1,6 +1,6 @@
 import { useState, Fragment } from 'react';
 import { CLASS_ORDER, POT_COLS } from '../lib/constants';
-import { isPrepared, isPotRelevant, score, maxScore, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
+import { isPrepared, isPotRelevant, score, maxScore, classColor, weaponBuffType, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
 
 const PRE_COLS_DEF = [
@@ -8,6 +8,8 @@ const PRE_COLS_DEF = [
   { key: 'battle_elixir',   label: 'Battle Elixir' },
   { key: 'guardian_elixir', label: 'Guard. Elixir' },
   { key: 'food',            label: 'Food'          },
+  { key: 'weapon_oil',      label: 'Weapon Oil'    },
+  { key: 'weapon_stone',    label: 'Weapon Stone'  },
   { key: 'scrolls',         label: 'Scrolls'       },
 ];
 
@@ -83,7 +85,9 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                             <Cell value={p.battle_elixir}   na={p.flask} />
                             <Cell value={p.guardian_elixir} na={p.flask} />
                             <Cell value={p.food} />
-                            <Cell value={p.scrolls} />
+                            <Cell value={p.weapon_oil}   na={weaponBuffType(p) !== 'oil'}   />
+                            <Cell value={p.weapon_stone} na={weaponBuffType(p) !== 'stone'} />
+                            <Cell value={p.scrolls} na={!p.scrolls} />
                           </>
                         ) : (
                           POT_COLS.map(c => (
