@@ -84,6 +84,7 @@ const API_ROUTES = [
   { route: '/api/debug_gear',       method: 'GET',      auth: 'None',     desc: 'Show weapon enchant IDs from a log (?code=XXX). Dev tool.' },
   { route: '/api/debug_potions',    method: 'GET',      auth: 'None',     desc: 'Show potion cast events from a log (?code=XXX). Dev tool.' },
   { route: '/api/debug_timestamps', method: 'GET',      auth: 'None',     desc: 'Show fight timestamps from a log (?code=XXX). Dev tool.' },
+  { route: '/api/debug_auras',      method: 'GET',      auth: 'None',     desc: 'Show CombatantInfo aura IDs for a player (?code=XXX&player=name). Dev tool.' },
 ];
 
 const ENV_VARS = [
