@@ -29,7 +29,7 @@ const FOOD_IDS_LIST = [
 const FLASK_IDS_LIST = [
   { name: 'Flask of Distilled Wisdom',     id: 17627, note: 'Buff name lacks "flask" — detected by ID' },
   { name: 'Flask of Chromatic Resistance', id: 17629, note: 'Buff is "Chromatic Resistance" — detected by ID' },
-  { name: 'Flask of Supreme Power',        id: 17637, note: '+150 spell damage — classic flask, detected by ID' },
+  { name: 'Flask of Supreme Power',        id: 17628, note: '+150 spell damage — buff aura ID (not the item-use spell ID)' },
 ];
 
 const ELIXIRS = [
