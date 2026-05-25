@@ -8,11 +8,12 @@ import { classColor } from '../../lib/scoring';
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [reports,   setReports]   = useState([]);
-  const [players,   setPlayers]   = useState([]);
-  const [tab,       setTab]       = useState('reports');
-  const [sortRole,  setSortRole]  = useState('all');
-  const [hoveredId, setHoveredId] = useState(null);
+  const [reports,     setReports]     = useState([]);
+  const [players,     setPlayers]     = useState([]);
+  const [tab,         setTab]         = useState('reports');
+  const [sortRole,    setSortRole]    = useState('all');
+  const [hoveredId,   setHoveredId]   = useState(null);
+  const [reanalyzing, setReanalyzing] = useState(new Set());
 
   const loadData = () => {
     fetch('/api/reports').then(r => r.json()).then(setReports);
@@ -29,6 +30,21 @@ export default function Dashboard() {
     if (!confirm('Delete this report? Player history from it will also be removed.')) return;
     await fetch(`/api/reports/${id}`, { method: 'DELETE' });
     loadData();
+  };
+
+  const reanalyzeReport = async (e, id) => {
+    e.stopPropagation();
+    setReanalyzing(prev => new Set([...prev, id]));
+    try {
+      const res = await fetch(`/api/reports/${id}`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) { alert(`Re-analysis failed: ${body.error || 'unknown error'}`); return; }
+      loadData();
+    } catch (err) {
+      alert(`Re-analysis failed: ${err.message}`);
+    } finally {
+      setReanalyzing(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
   };
 
   if (status === 'loading') return null;
@@ -101,6 +117,13 @@ export default function Dashboard() {
                         <td style={{ color: '#666', fontSize: '.82rem' }}>{raidDate}</td>
                         <td style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                           <Link href={`/reports/${r.wcl_code}`} className="subtle-link">View →</Link>
+                          <button
+                            onClick={e => reanalyzeReport(e, r.id)}
+                            disabled={reanalyzing.has(r.id)}
+                            style={{ background: 'none', border: 'none', color: reanalyzing.has(r.id) ? '#555' : '#888', cursor: reanalyzing.has(r.id) ? 'default' : 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
+                            title="Re-fetch from WCL with latest detection logic">
+                            {reanalyzing.has(r.id) ? '↻ Refreshing…' : '↻ Refresh'}
+                          </button>
                           <button
                             onClick={e => deleteReport(e, r.id)}
                             style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
