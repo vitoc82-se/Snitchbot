@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { classColor, score, maxScore } from '../../../lib/scoring';
+import { classColor, score, maxScore, weaponBuffType } from '../../../lib/scoring';
 import { PRE_COLS, POT_COLS } from '../../../lib/constants';
 
 export default function PlayerDetail() {
@@ -99,8 +99,11 @@ function RaidDetail({ raid }) {
     POT_COLS.forEach(c => {
       potMax[c.key] = Math.max(...boss.attempts.map(a => a[c.key] || 0));
     });
-    const s  = first.score    ?? score(first);
-    const mx = first.maxScore ?? maxScore(first);
+    // Score from a synthetic player combining pre-fight buffs (stable across attempts)
+    // with the best pot usage observed across all attempts — matches what the table displays.
+    const scorePlayer = { ...first, ...potMax };
+    const s  = score(scorePlayer);
+    const mx = maxScore(first);
     return { boss: boss.name, result, isKill, first, potMax, s, mx };
   });
 
@@ -122,11 +125,18 @@ function RaidDetail({ raid }) {
             <tr key={r.boss}>
               <td style={{ whiteSpace: 'nowrap' }}>{r.boss}</td>
               <td style={{ textAlign: 'center', color: r.isKill ? '#4caf50' : '#888' }}>{r.result}</td>
-              {PRE_COLS.map(c => (
-                <td key={c.key} style={{ textAlign: 'center', color: r.first[c.key] ? '#4caf50' : '#e05555' }}>
-                  {r.first[c.key] ? '✓' : '✗'}
-                </td>
-              ))}
+              {PRE_COLS.map(c => {
+                const wbType = weaponBuffType(r.first);
+                const na = (c.key === 'weapon_oil'   && wbType !== 'oil')
+                        || (c.key === 'weapon_stone' && wbType !== 'stone');
+                const val = r.first[c.key];
+                return (
+                  <td key={c.key} style={{ textAlign: 'center',
+                    color: na ? '#555' : val ? '#4caf50' : '#e05555' }}>
+                    {na ? '—' : val ? '✓' : '✗'}
+                  </td>
+                );
+              })}
               {POT_COLS.map(c => (
                 <td key={c.key} style={{ textAlign: 'center', color: r.potMax[c.key] > 0 ? '#4caf50' : '#555' }}>
                   {r.potMax[c.key] > 0 ? r.potMax[c.key] : '—'}
