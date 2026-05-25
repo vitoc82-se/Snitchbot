@@ -161,7 +161,7 @@ export default function Dashboard() {
                             </span>
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <ConsistencyBadge avg={p.avg_score} />
+                            <ConsistencyBadge avg={p.avg_score} max={p.avg_max} />
                           </td>
                         </tr>
                       ))}
@@ -176,10 +176,15 @@ export default function Dashboard() {
   );
 }
 
-function ConsistencyBadge({ avg }) {
-  if (avg >= 3)  return <span title={`Avg score: ${avg}`} style={{ color: '#4caf50', fontSize: '1.1rem' }}>✓</span>;
-  if (avg >= 2)  return <span title={`Avg score: ${avg}`} style={{ color: '#f5c842', fontSize: '1.1rem' }}>~</span>;
-  return           <span title={`Avg score: ${avg}`} style={{ color: '#e05555', fontSize: '1.1rem' }}>✗</span>;
+// Percentage-based so thresholds stay meaningful regardless of max score
+// (max varies by settings — e.g. 4 normally, 5 with weapon buff enabled).
+// >= 75% → green ✓   50–75% → yellow ~   < 50% → red ✗
+function ConsistencyBadge({ avg, max }) {
+  const pct = max > 0 ? avg / max : 0;
+  const label = `Avg score: ${avg}/${max}`;
+  if (pct >= 0.75) return <span title={label} style={{ color: '#4caf50', fontSize: '1.1rem' }}>✓</span>;
+  if (pct >= 0.5)  return <span title={label} style={{ color: '#f5c842', fontSize: '1.1rem' }}>~</span>;
+  return                  <span title={label} style={{ color: '#e05555', fontSize: '1.1rem' }}>✗</span>;
 }
 
 function scoreColor(score, max) {

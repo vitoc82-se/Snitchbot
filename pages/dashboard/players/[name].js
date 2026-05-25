@@ -3,19 +3,25 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { classColor, score, maxScore, weaponBuffType } from '../../../lib/scoring';
+import { classColor, score, maxScore, weaponBuffType, DEFAULT_MANDATORY } from '../../../lib/scoring';
 import { PRE_COLS, POT_COLS } from '../../../lib/constants';
 
 export default function PlayerDetail() {
   const { data: session, status } = useSession();
   const router  = useRouter();
   const { name } = router.query;
-  const [raids, setRaids]           = useState([]);
+  const [raids,     setRaids]     = useState([]);
+  const [mandatory, setMandatory] = useState(DEFAULT_MANDATORY);
   const [selectedRaid, setSelected] = useState(null);
 
   useEffect(() => {
     if (!session || !name) return;
-    fetch(`/api/players/${encodeURIComponent(name)}`).then(r => r.json()).then(setRaids);
+    fetch(`/api/players/${encodeURIComponent(name)}`)
+      .then(r => r.json())
+      .then(({ raids, mandatory }) => {
+        setRaids(raids);
+        setMandatory(mandatory);
+      });
   }, [session, name]);
 
   if (status === 'loading' || !name) return null;
@@ -43,7 +49,7 @@ export default function PlayerDetail() {
           ? <p style={{ color: '#666', marginTop: '1.5rem' }}>No raid history found.</p>
           : !selectedRaid
             ? <RaidList raids={raids} onSelect={setSelected} />
-            : <RaidDetail raid={selectedRaid} name={name} />
+            : <RaidDetail raid={selectedRaid} mandatory={mandatory} />
         }
       </div>
     </>
@@ -64,6 +70,8 @@ function RaidList({ raids, onSelect }) {
       </thead>
       <tbody>
         {raids.map(r => {
+          // Use kill attempt per boss (or last attempt) — matches RaidDetail logic.
+          // ref.score / ref.maxScore are pre-calculated by the API using the user's mandatory settings.
           const bossScores = r.bosses.map(b => {
             const ref = b.attempts.find(a => a.isKill) ?? b.attempts[b.attempts.length - 1];
             return { score: ref.score || 0, maxScore: ref.maxScore || 0 };
@@ -89,17 +97,17 @@ function RaidList({ raids, onSelect }) {
   );
 }
 
-function RaidDetail({ raid }) {
+function RaidDetail({ raid, mandatory }) {
   // One row per boss, using the kill attempt as the source of truth.
   // Pre-fight buffs are stable across attempts; pots reflect what was used on the kill.
   const rows = raid.bosses.map(boss => {
     const isKill = boss.attempts.some(a => a.isKill);
     const result = isKill ? 'Kill' : `${boss.attempts.length}W`;
-    // Use the kill attempt if there is one, otherwise the last attempt.
-    // Pre-fight buffs are the same across all attempts; pots vary — kill is the ground truth.
     const ref = boss.attempts.find(a => a.isKill) ?? boss.attempts[boss.attempts.length - 1];
-    const s  = score(ref);
-    const mx = maxScore(ref);
+    // Score with the user's mandatory settings (same mandatory the API used for ref.score,
+    // but we recalculate client-side so the weapon column visibility is also respected).
+    const s  = score(ref, mandatory);
+    const mx = maxScore(ref, mandatory);
     return { boss: boss.name, result, isKill, ref, s, mx };
   });
 

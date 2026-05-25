@@ -1,6 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
-import { score as calcScore, maxScore as calcMax } from '../../../lib/scoring';
+import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -9,6 +9,12 @@ export default async function handler(req, res) {
   if (!token?.dbId) return res.status(401).json({ error: 'Not logged in' });
 
   const { name } = req.query;
+
+  // Load the user's mandatory settings so scores respect their configuration.
+  const [settings] = await sql`
+    SELECT mandatory FROM user_settings WHERE user_id = ${token.dbId}
+  `;
+  const mandatory = settings?.mandatory ?? DEFAULT_MANDATORY;
 
   const reports = await sql`
     SELECT id, wcl_code, title, created_at, data
@@ -22,7 +28,13 @@ export default async function handler(req, res) {
       const playerAttempts = (b.attempts || []).map(a => {
         const p = (a.players || []).find(pl => pl.name === name);
         if (!p) return null;
-        return { attempt: a.attempt, isKill: a.isKill, ...p, score: calcScore(p), maxScore: calcMax(p) };
+        return {
+          attempt:  a.attempt,
+          isKill:   a.isKill,
+          ...p,
+          score:    calcScore(p, mandatory),
+          maxScore: calcMax(p, mandatory),
+        };
       }).filter(Boolean);
       return playerAttempts.length ? { name: b.name, attempts: playerAttempts } : null;
     }).filter(Boolean);
@@ -32,5 +44,7 @@ export default async function handler(req, res) {
       : null;
   }).filter(Boolean);
 
-  res.json(result);
+  // Include the mandatory config so the client can use it for client-side scoring
+  // (e.g. RaidDetail which scores directly from player objects).
+  res.json({ raids: result, mandatory });
 }

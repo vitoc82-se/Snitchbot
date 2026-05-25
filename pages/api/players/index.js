@@ -1,12 +1,18 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
-import { score, maxScore } from '../../../lib/scoring';
+import { score, maxScore, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token?.dbId) return res.status(401).json({ error: 'Not logged in' });
+
+  // Load the user's mandatory settings so scores respect their configuration.
+  const [settings] = await sql`
+    SELECT mandatory FROM user_settings WHERE user_id = ${token.dbId}
+  `;
+  const mandatory = settings?.mandatory ?? DEFAULT_MANDATORY;
 
   const reports = await sql`
     SELECT id, data FROM reports WHERE user_id = ${token.dbId}
@@ -33,8 +39,8 @@ export default async function handler(req, res) {
           raidTotals[p.name] = { class: p.class, role: p.role,
             totalScore: 0, totalMax: 0, bossCount: 0 };
         }
-        raidTotals[p.name].totalScore += score(p);
-        raidTotals[p.name].totalMax   += maxScore(p);
+        raidTotals[p.name].totalScore += score(p, mandatory);
+        raidTotals[p.name].totalMax   += maxScore(p, mandatory);
         raidTotals[p.name].bossCount++;
       }
     }
@@ -48,7 +54,6 @@ export default async function handler(req, res) {
       }
       const entry = playerMap[name];
       entry.appearances++;
-      // Add per-raid avg (keeps the same unit as the player detail overview).
       entry.totalScore += rt.totalScore / rt.bossCount;
       entry.totalMax   += rt.totalMax   / rt.bossCount;
     }
