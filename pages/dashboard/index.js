@@ -47,6 +47,19 @@ export default function Dashboard() {
     }
   };
 
+  const reanalyzeAll = async () => {
+    if (!reports.length) return;
+    // Run sequentially to avoid hammering WCL rate limits.
+    setReanalyzing(new Set(reports.map(r => r.id)));
+    for (const r of reports) {
+      try {
+        await fetch(`/api/reports/${r.id}`, { method: 'POST' });
+      } catch {}
+      setReanalyzing(prev => { const s = new Set(prev); s.delete(r.id); return s; });
+    }
+    loadData();
+  };
+
   if (status === 'loading') return null;
   if (!session) return (
     <div className="container">
@@ -79,6 +92,18 @@ export default function Dashboard() {
           reports.length === 0
             ? <p style={{ color: '#666' }}>No saved reports yet. Analyze a log and click Save Report.</p>
             : (
+              <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '.75rem' }}>
+                <button
+                  className="btn btn-sm"
+                  onClick={reanalyzeAll}
+                  disabled={reanalyzing.size > 0}
+                  title="Re-fetch all reports from WCL with the latest detection logic">
+                  {reanalyzing.size > 0
+                    ? `↻ Refreshing ${reanalyzing.size} remaining…`
+                    : '↻ Refresh All'}
+                </button>
+              </div>
               <table className="player-table">
                 <thead>
                   <tr>
@@ -136,6 +161,7 @@ export default function Dashboard() {
                   })}
                 </tbody>
               </table>
+              </>
             )
         )}
 
