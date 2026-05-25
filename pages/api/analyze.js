@@ -76,6 +76,7 @@ export default async function handler(req, res) {
       query Q1($code: String!) {
         reportData { report(code: $code) {
           title
+          startTime
           fights(killType: Encounters) { id name startTime endTime kill }
           masterData { actors(type: "Player") { id name subType } }
           summary: table(dataType: Summary, startTime: 0, endTime: 9999999999)
@@ -256,7 +257,7 @@ export default async function handler(req, res) {
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
     await trackAnalysis(code, ip).catch(() => {});
 
-    return res.json({ title: report.title, bosses, potionLeaderboard });
+    return res.json({ title: report.title, raidDate: report.startTime || null, bosses, potionLeaderboard });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message || 'Failed to analyze log' });

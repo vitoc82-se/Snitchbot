@@ -8,10 +8,22 @@ export default async function handler(req, res) {
   if (!token?.dbId) return res.status(401).json({ error: 'Not logged in' });
 
   const rows = await sql`
-    SELECT id, wcl_code, title, created_at
+    SELECT id, wcl_code, title, created_at, data
     FROM reports
     WHERE user_id = ${token.dbId}
     ORDER BY created_at DESC
   `;
-  res.json(rows);
+
+  const result = rows.map(r => ({
+    id:         r.id,
+    wcl_code:   r.wcl_code,
+    title:      r.title,
+    created_at: r.created_at,
+    raid_date:  r.data?.raidDate ?? null,
+    kills:      (r.data?.bosses || [])
+                  .filter(b => b.attempts?.some(a => a.isKill))
+                  .map(b => b.name),
+  }));
+
+  res.json(result);
 }

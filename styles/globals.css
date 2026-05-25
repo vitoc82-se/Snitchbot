@@ -249,3 +249,8 @@ code {
 .suggest-admin-status { font-size: .78rem; font-weight: bold; letter-spacing: .4px; text-transform: uppercase; }
 .suggest-admin-row { margin-bottom: .3rem; }
 .suggest-admin-lbl { color: #555; font-size: .78rem; min-width: 65px; display: inline-block; }
+
+/* ── Dashboard kills tooltip ─────────────────────────────────────────────── */
+.kills-tooltip { position: absolute; top: 100%; left: 0; z-index: 50; background: #1a1a1a; border: 1px solid #333; border-radius: 5px; padding: .6rem .9rem; min-width: 180px; pointer-events: none; margin-top: 4px; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.kills-tooltip-title { color: #f5c842; font-size: .75rem; letter-spacing: .5px; text-transform: uppercase; margin-bottom: .4rem; }
+.kills-tooltip-boss { color: #ccc; font-size: .85rem; padding: .15rem 0; }

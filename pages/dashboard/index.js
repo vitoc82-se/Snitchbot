@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useSession, signIn } from 'next-auth/react';
 import { classColor } from '../../lib/scoring';
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
-  const [reports, setReports]   = useState([]);
-  const [players, setPlayers]   = useState([]);
-  const [tab, setTab]           = useState('reports');
-  const [sortRole, setSortRole] = useState('all');
+  const router = useRouter();
+  const [reports,   setReports]   = useState([]);
+  const [players,   setPlayers]   = useState([]);
+  const [tab,       setTab]       = useState('reports');
+  const [sortRole,  setSortRole]  = useState('all');
+  const [hoveredId, setHoveredId] = useState(null);
 
   const loadData = () => {
     fetch('/api/reports').then(r => r.json()).then(setReports);
@@ -21,7 +24,8 @@ export default function Dashboard() {
     loadData();
   }, [session]);
 
-  const deleteReport = async (id) => {
+  const deleteReport = async (e, id) => {
+    e.stopPropagation();
     if (!confirm('Delete this report? Player history from it will also be removed.')) return;
     await fetch(`/api/reports/${id}`, { method: 'DELETE' });
     loadData();
@@ -64,29 +68,49 @@ export default function Dashboard() {
                   <tr>
                     <th>Report</th>
                     <th>Code</th>
-                    <th>Saved</th>
+                    <th>Raid Date</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reports.map(r => (
-                    <tr key={r.id}>
-                      <td>{r.title || r.wcl_code}</td>
-                      <td><code>{r.wcl_code}</code></td>
-                      <td style={{ color: '#666', fontSize: '.82rem' }}>
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </td>
-                      <td style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
-                        <Link href={`/reports/${r.wcl_code}`} className="subtle-link">View →</Link>
-                        <button
-                          onClick={() => deleteReport(r.id)}
-                          style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
-                          title="Delete report">
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {reports.map(r => {
+                    const raidDate = r.raid_date
+                      ? new Date(r.raid_date).toLocaleDateString()
+                      : new Date(r.created_at).toLocaleDateString();
+
+                    return (
+                      <tr
+                        key={r.id}
+                        onClick={() => router.push(`/reports/${r.wcl_code}`)}
+                        onMouseEnter={() => setHoveredId(r.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td style={{ position: 'relative' }}>
+                          <span>{r.title || r.wcl_code}</span>
+                          {hoveredId === r.id && r.kills?.length > 0 && (
+                            <div className="kills-tooltip">
+                              <div className="kills-tooltip-title">Bosses killed</div>
+                              {r.kills.map(k => (
+                                <div key={k} className="kills-tooltip-boss">⚔ {k}</div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td><code>{r.wcl_code}</code></td>
+                        <td style={{ color: '#666', fontSize: '.82rem' }}>{raidDate}</td>
+                        <td style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                          <Link href={`/reports/${r.wcl_code}`} className="subtle-link">View →</Link>
+                          <button
+                            onClick={e => deleteReport(e, r.id)}
+                            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
+                            title="Delete report">
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )
@@ -105,7 +129,7 @@ export default function Dashboard() {
             </div>
             {players.length === 0
               ? <p style={{ color: '#666' }}>No player data yet. Save a report first.</p>
-              : (<>
+              : (
                 <table className="player-table">
                   <thead>
                     <tr>
@@ -143,8 +167,8 @@ export default function Dashboard() {
                       ))}
                   </tbody>
                 </table>
-              </>
-            )}
+              )
+            }
           </>
         )}
       </div>
