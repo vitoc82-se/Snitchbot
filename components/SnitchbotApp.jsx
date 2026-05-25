@@ -237,7 +237,8 @@ export default function SnitchbotApp({ initialCode }) {
         <footer className="site-footer">
           Built by <strong>Vitok</strong> · Thunderstrike EU &nbsp;·&nbsp;
           Powered by <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer" className="subtle-link">Warcraft Logs</a> API &nbsp;·&nbsp;
-          TBC Anniversary (Fresh) only
+          TBC Anniversary (Fresh) only &nbsp;·&nbsp;
+          Questions or feedback? Discord: <strong style={{ color: '#ddd', userSelect: 'all' }}>vitoc</strong>
         </footer>
       </div>
     </>
