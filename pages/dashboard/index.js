@@ -138,7 +138,7 @@ export default function Dashboard() {
                       <th>Role</th>
                       <th style={{ textAlign: 'center' }}>Raids</th>
                       <th style={{ textAlign: 'center' }}>Avg Score</th>
-                      <th style={{ textAlign: 'center' }}>Prepared</th>
+                      <th style={{ textAlign: 'center' }}>Consistency</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -160,8 +160,8 @@ export default function Dashboard() {
                               {p.avg_score}/{p.avg_max}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'center', color: '#888' }}>
-                            {p.prepared_count}/{p.appearances}
+                          <td style={{ textAlign: 'center' }}>
+                            <ConsistencyBadge avg={p.avg_score} />
                           </td>
                         </tr>
                       ))}
@@ -174,6 +174,12 @@ export default function Dashboard() {
       </div>
     </>
   );
+}
+
+function ConsistencyBadge({ avg }) {
+  if (avg >= 3)  return <span title={`Avg score: ${avg}`} style={{ color: '#4caf50', fontSize: '1.1rem' }}>✓</span>;
+  if (avg >= 2)  return <span title={`Avg score: ${avg}`} style={{ color: '#f5c842', fontSize: '1.1rem' }}>~</span>;
+  return           <span title={`Avg score: ${avg}`} style={{ color: '#e05555', fontSize: '1.1rem' }}>✗</span>;
 }
 
 function scoreColor(score, max) {
