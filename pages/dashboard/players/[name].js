@@ -64,9 +64,12 @@ function RaidList({ raids, onSelect }) {
       </thead>
       <tbody>
         {raids.map(r => {
-          const allAttempts = r.bosses.flatMap(b => b.attempts);
-          const avgScore = allAttempts.reduce((s, a) => s + (a.score || 0), 0) / allAttempts.length;
-          const avgMax   = allAttempts.reduce((s, a) => s + (a.maxScore || 0), 0) / allAttempts.length;
+          const bossScores = r.bosses.map(b => {
+            const ref = b.attempts.find(a => a.isKill) ?? b.attempts[b.attempts.length - 1];
+            return { score: ref.score || 0, maxScore: ref.maxScore || 0 };
+          });
+          const avgScore = bossScores.reduce((s, b) => s + b.score, 0) / bossScores.length;
+          const avgMax   = bossScores.reduce((s, b) => s + b.maxScore, 0) / bossScores.length;
           return (
             <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onSelect(r)}>
               <td>{r.title || r.wcl_code}</td>
