@@ -87,24 +87,17 @@ function RaidList({ raids, onSelect }) {
 }
 
 function RaidDetail({ raid }) {
-  // One row per boss. Pre-fight consumables don't change between attempts,
-  // so use the first attempt. For pots, show max used across any attempt.
+  // One row per boss, using the kill attempt as the source of truth.
+  // Pre-fight buffs are stable across attempts; pots reflect what was used on the kill.
   const rows = raid.bosses.map(boss => {
-    const first = boss.attempts[0];
-    const result = boss.attempts.some(a => a.isKill)
-      ? 'Kill'
-      : `${boss.attempts.length}W`;
     const isKill = boss.attempts.some(a => a.isKill);
-    const potMax = {};
-    POT_COLS.forEach(c => {
-      potMax[c.key] = Math.max(...boss.attempts.map(a => a[c.key] || 0));
-    });
-    // Score from a synthetic player combining pre-fight buffs (stable across attempts)
-    // with the best pot usage observed across all attempts — matches what the table displays.
-    const scorePlayer = { ...first, ...potMax };
-    const s  = score(scorePlayer);
-    const mx = maxScore(first);
-    return { boss: boss.name, result, isKill, first, potMax, s, mx };
+    const result = isKill ? 'Kill' : `${boss.attempts.length}W`;
+    // Use the kill attempt if there is one, otherwise the last attempt.
+    // Pre-fight buffs are the same across all attempts; pots vary — kill is the ground truth.
+    const ref = boss.attempts.find(a => a.isKill) ?? boss.attempts[boss.attempts.length - 1];
+    const s  = score(ref);
+    const mx = maxScore(ref);
+    return { boss: boss.name, result, isKill, ref, s, mx };
   });
 
   return (
@@ -126,10 +119,10 @@ function RaidDetail({ raid }) {
               <td style={{ whiteSpace: 'nowrap' }}>{r.boss}</td>
               <td style={{ textAlign: 'center', color: r.isKill ? '#4caf50' : '#888' }}>{r.result}</td>
               {PRE_COLS.map(c => {
-                const wbType = weaponBuffType(r.first);
+                const wbType = weaponBuffType(r.ref);
                 const na = (c.key === 'weapon_oil'   && wbType !== 'oil')
                         || (c.key === 'weapon_stone' && wbType !== 'stone');
-                const val = r.first[c.key];
+                const val = r.ref[c.key];
                 return (
                   <td key={c.key} style={{ textAlign: 'center',
                     color: na ? '#555' : val ? '#4caf50' : '#e05555' }}>
@@ -137,11 +130,14 @@ function RaidDetail({ raid }) {
                   </td>
                 );
               })}
-              {POT_COLS.map(c => (
-                <td key={c.key} style={{ textAlign: 'center', color: r.potMax[c.key] > 0 ? '#4caf50' : '#555' }}>
-                  {r.potMax[c.key] > 0 ? r.potMax[c.key] : '—'}
-                </td>
-              ))}
+              {POT_COLS.map(c => {
+                const val = r.ref[c.key] || 0;
+                return (
+                  <td key={c.key} style={{ textAlign: 'center', color: val > 0 ? '#4caf50' : '#555' }}>
+                    {val > 0 ? val : '—'}
+                  </td>
+                );
+              })}
               <td style={{ textAlign: 'center', color: r.s === r.mx ? '#4caf50' : r.s === 0 ? '#e05555' : '#f5c842', fontWeight: 'bold' }}>
                 {r.s}/{r.mx}
               </td>
