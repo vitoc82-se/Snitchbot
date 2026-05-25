@@ -103,17 +103,24 @@ export default function SnitchbotApp({ initialCode }) {
       <Head><title>Snitchbot</title></Head>
       <div className="container">
         <div className="top-nav">
-          <div className="top-nav-left">
-            <h1 style={{ margin: 0 }}>Snitchbot</h1>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <span className="nav-logo">Snitchbot</span>
+          </Link>
+
+          <div className="nav-center">
+            <Link href="/readme"   className="nav-link">How it works</Link>
+            <Link href="/suggest"  className="nav-link">Suggest</Link>
           </div>
-          <div className="top-nav-right">
+
+          <div className="nav-user">
             {session ? (
               <>
                 <img src={session.user.image} alt="" className="nav-avatar" />
                 <span className="nav-username">{session.user.name}</span>
-                <Link href="/dashboard" className="btn btn-sm">Dashboard</Link>
-                <Link href="/settings" className="btn btn-sm">Settings</Link>
-                <button className="btn btn-sm" onClick={() => signOut()}>Sign out</button>
+                <span className="nav-sep">·</span>
+                <Link href="/dashboard" className="nav-link">Dashboard</Link>
+                <Link href="/settings"  className="nav-link">Settings</Link>
+                <button className="nav-signout" onClick={() => signOut()}>Sign out</button>
               </>
             ) : (
               <button className="btn btn-sm" onClick={() => signIn('discord')}>
@@ -122,12 +129,7 @@ export default function SnitchbotApp({ initialCode }) {
             )}
           </div>
         </div>
-        <p className="subtitle">
-          Check who forgot their consumables ·{' '}
-          <Link href="/readme" className="subtle-link">How it works</Link>
-          {' '}·{' '}
-          <Link href="/suggest" className="subtle-link">Suggest a consumable</Link>
-        </p>
+        <p className="subtitle">Check who forgot their consumables before the pull.</p>
 
         <div className="input-row">
           <input
