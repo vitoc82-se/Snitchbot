@@ -1,6 +1,6 @@
 import { getToken } from 'next-auth/jwt';
 import sql from '../../../lib/db';
-import { score, maxScore, isPrepared } from '../../../lib/scoring';
+import { score, maxScore } from '../../../lib/scoring';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -12,38 +12,55 @@ export default async function handler(req, res) {
     SELECT id, data FROM reports WHERE user_id = ${token.dbId}
   `;
 
-  // One entry per (player, report) — consumables don't change within a raid
+  // One entry per player across all reports.
+  // Per report: for each boss, use the kill attempt (or last attempt) as the
+  // source of truth — same logic as the player detail page.
   const playerMap = {};
+
   for (const r of reports) {
-    const seen = {}; // name -> first player snapshot in this report
+    // Per-player, accumulate score/max across bosses within this report.
+    const raidTotals = {}; // name -> { class, role, totalScore, totalMax, bossCount }
+
     for (const boss of (r.data.bosses || [])) {
-      for (const attempt of (boss.attempts || [])) {
-        for (const p of (attempt.players || [])) {
-          if (!seen[p.name]) seen[p.name] = p;
+      // Kill attempt is the ground truth; fall back to last attempt.
+      const refAttempt =
+        boss.attempts?.find(a => a.isKill) ??
+        boss.attempts?.[boss.attempts.length - 1];
+      if (!refAttempt) continue;
+
+      for (const p of (refAttempt.players || [])) {
+        if (!raidTotals[p.name]) {
+          raidTotals[p.name] = { class: p.class, role: p.role,
+            totalScore: 0, totalMax: 0, bossCount: 0 };
         }
+        raidTotals[p.name].totalScore += score(p);
+        raidTotals[p.name].totalMax   += maxScore(p);
+        raidTotals[p.name].bossCount++;
       }
     }
-    for (const p of Object.values(seen)) {
-      if (!playerMap[p.name]) {
-        playerMap[p.name] = { name: p.name, class: p.class, role: p.role,
-          appearances: 0, totalScore: 0, totalMax: 0, preparedCount: 0 };
+
+    // Fold this report's per-boss averages into the global player map.
+    for (const [name, rt] of Object.entries(raidTotals)) {
+      if (!rt.bossCount) continue;
+      if (!playerMap[name]) {
+        playerMap[name] = { name, class: rt.class, role: rt.role,
+          appearances: 0, totalScore: 0, totalMax: 0 };
       }
-      const entry = playerMap[p.name];
+      const entry = playerMap[name];
       entry.appearances++;
-      entry.totalScore   += score(p);
-      entry.totalMax     += maxScore(p);
-      if (isPrepared(p)) entry.preparedCount++;
+      // Add per-raid avg (keeps the same unit as the player detail overview).
+      entry.totalScore += rt.totalScore / rt.bossCount;
+      entry.totalMax   += rt.totalMax   / rt.bossCount;
     }
   }
 
   const rows = Object.values(playerMap).map(e => ({
-    name:           e.name,
-    class:          e.class,
-    role:           e.role,
-    appearances:    e.appearances,
-    avg_score:      e.appearances ? +(e.totalScore / e.appearances).toFixed(2) : 0,
-    avg_max:        e.appearances ? +(e.totalMax   / e.appearances).toFixed(2) : 0,
-    prepared_count: e.preparedCount,
+    name:        e.name,
+    class:       e.class,
+    role:        e.role,
+    appearances: e.appearances,
+    avg_score:   e.appearances ? +(e.totalScore / e.appearances).toFixed(2) : 0,
+    avg_max:     e.appearances ? +(e.totalMax   / e.appearances).toFixed(2) : 0,
   })).sort((a, b) => b.avg_score - a.avg_score);
 
   res.json(rows);
