@@ -282,3 +282,17 @@ code {
 .nav-signout { background: none; border: none; color: #777; font-size: .95rem; cursor: pointer; padding: 0; font-family: inherit; transition: color .15s; }
 .nav-signout:hover { color: #ccc; }
 .btn-sm { padding: .3rem .85rem; font-size: .82rem; }
+
+/* ── Top nav v4 ──────────────────────────────────────────────────────────── */
+.top-nav { display: flex; align-items: center; gap: 1.75rem; padding: .85rem 0 1.1rem; border-bottom: 1px solid #1a1a1a; margin-bottom: 1.25rem; }
+.nav-logo { font-size: 1.4rem; font-weight: bold; color: #f5c842; letter-spacing: -.5px; }
+.nav-center { display: flex; align-items: center; gap: .75rem; flex: 1; }
+.nav-user { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
+.nav-link { color: #c9a52a; font-size: .9rem; text-decoration: none; background: rgba(245,200,66,.07); border: 1px solid rgba(245,200,66,.18); border-radius: 4px; padding: .28rem .75rem; transition: all .15s; }
+.nav-link:hover { color: #f5c842; background: rgba(245,200,66,.13); border-color: rgba(245,200,66,.32); }
+.nav-sep { color: #333; font-size: .95rem; }
+.nav-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.nav-username { color: #bbb; font-size: .9rem; }
+.nav-signout { background: none; border: none; color: #666; font-size: .9rem; cursor: pointer; padding: 0; font-family: inherit; transition: color .15s; }
+.nav-signout:hover { color: #bbb; }
+.btn-sm { padding: .3rem .85rem; font-size: .82rem; }
