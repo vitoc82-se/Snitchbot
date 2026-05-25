@@ -202,8 +202,12 @@ function HowItWorks() {
           <li>+1 point — Flask or Battle Elixir</li>
           <li>+1 point — Flask or Guardian Elixir</li>
           <li>+1 point — Food buff</li>
-          <li>+1 point per relevant in-combat potion used (depends on class and role — see table below)</li>
+          <li>+1 point — Used <em>at least one</em> relevant in-combat potion (max 1 point for the pot category, regardless of how many types apply to your role)</li>
         </ul>
+        <p>
+          Because potions share a cooldown in TBC, only 1 point is awarded for the potion category — using a Destruction Potion, a Haste Potion, or a Mana Potion all give the same 1 point.
+          The relevant potion types per class and role are shown in the table below.
+        </p>
         <p>
           Healthstone, Weapon Oil, and Weapon Stone are shown in the table but <strong>do not affect the score by default</strong>.
           You can make weapon buffs count by enabling them in Settings.
@@ -211,9 +215,10 @@ function HowItWorks() {
 
         <h3 className="readme-h3">Why the max score is different per player</h3>
         <p>
-          Not every player is expected to use the same potions. A Warrior only has one relevant potion
-          (Haste Pot), so their max is 4. A Mage has two relevant potions (Destruction Pot + Mana Pot),
-          so their max is 5. A non-Paladin tank has no relevant potions, so their max is 3.
+          Whether a player has a relevant potion at all depends on their class and role. If any relevant potion
+          exists for them, their max goes up by 1. If none do, the pot category doesn't exist for them.
+          A Warrior DPS, a Mage, a Holy Priest, and a Prot Warrior all have max 4 — the potion types differ
+          but each contributes exactly 1 point to the max.
         </p>
         <p>
           This means the score is <strong>fair</strong> — you're only judged on what actually applies to your class and role.
@@ -280,8 +285,12 @@ function HowItWorks() {
 
       <Section title="Role-Based Potion Relevance">
         <p>
-          This table shows which potions are expected for each role. A <span className="check">✓</span> means
-          the potion is scored for that role. <span className="na-text">—</span> means it doesn't apply.
+          This table shows which potions are accepted for each role. A <span className="check">✓</span> means
+          using that potion satisfies the pot requirement. <span className="na-text">—</span> means it doesn't apply.
+        </p>
+        <p style={{ color: '#888', fontSize: '.88rem' }}>
+          <strong>Important:</strong> The entire potion category is worth <strong>1 point maximum</strong> —
+          using any one of the marked potions earns it. Multiple ✓ columns just mean those are all accepted options for that role.
         </p>
         <div className="table-wrap">
           <table>
@@ -520,7 +529,7 @@ function Development() {
               <tr><td>Cache</td><td>Upstash Redis (HTTP pipeline)</td><td className="readme-note">Admin stats only. Not a Redis client lib — HTTP only.</td></tr>
               <tr><td>WCL data</td><td>Warcraft Logs GraphQL API v2</td><td className="readme-note">CombatantInfo + Cast events. Client credentials OAuth.</td></tr>
               <tr><td>Styling</td><td>Single global CSS file</td><td className="readme-note">Dark WoW theme. Managed remotely via push scripts.</td></tr>
-              <tr><td>Deploy</td><td>Python scripts (GitHub Git Tree API)</td><td className="readme-note">push_preview.py → new.snitchbot.app, push_all.py → live</td></tr>
+              <tr><td>Deploy</td><td>Python scripts (GitHub Git Tree API)</td><td className="readme-note">push_all.py → vitoc82-se/Snitchbot → snitchbot.app (single production site)</td></tr>
             </tbody>
           </table>
         </div>
@@ -528,8 +537,7 @@ function Development() {
 
       <Section title="Repository & File Structure">
         <p style={{ color: '#888', fontSize: '.88rem', marginBottom: '.75rem' }}>
-          Two separate GitHub repos: <code>vitoc82-se/Snitchbot</code> (preview → new.snitchbot.app) and{' '}
-          <code>vitoc82-se/USETHEPOTS</code> (live → snitchbot.app).
+          Single GitHub repo: <code>vitoc82-se/Snitchbot</code> → snitchbot.app (Vercel auto-deploys on push to main).
           Local working directory: <code>C:\Users\freem\Guidevision.eu\</code>
         </p>
         <CodeBlock>{`src/
@@ -570,8 +578,7 @@ function Development() {
 └── styles/
     └── globals.css       ← All CSS. Lives in GitHub only (no local copy).
 
-push_preview.py   ← Deploy src/ → vitoc82-se/Snitchbot (preview)
-push_all.py       ← Deploy src/ → vitoc82-se/USETHEPOTS (LIVE — careful!)
+push_all.py       ← Deploy src/ → vitoc82-se/Snitchbot (LIVE — snitchbot.app)
 DEVELOPMENT.md    ← This content as a local markdown file`}</CodeBlock>
       </Section>
 
@@ -739,17 +746,20 @@ export function relevantPotKeys(playerClass, role)
 export function weaponBuffType(player)`}</CodeBlock>
 
         <h3 className="readme-h3">Max score by class/role (default settings)</h3>
+        <p style={{ color: '#888', fontSize: '.88rem', marginBottom: '.5rem' }}>
+          Pot column: always +1 max (1 point if <em>any</em> relevant potion is used — TBC cooldown means you can only use one anyway).
+        </p>
         <div className="table-wrap">
           <table>
             <thead><tr><th>Player type</th><th>Pre-fight (3)</th><th>Potions</th><th>Total max</th></tr></thead>
             <tbody>
               <tr><td>Warrior DPS / Rogue / Hunter / Ret Paladin</td><td className="center">3</td><td className="center">+1 (Haste Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Mage / Warlock / Shadow Priest / Ele Shaman</td><td className="center">3</td><td className="center">+2 (Dest + Mana)</td><td className="center"><strong>5</strong></td></tr>
+              <tr><td>Mage / Warlock / Shadow Priest</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
+              <tr><td>Shaman DPS / Druid DPS</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
               <tr><td>Healer (all classes)</td><td className="center">3</td><td className="center">+1 (Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Tank (non-Paladin)</td><td className="center">3</td><td className="center">+0</td><td className="center"><strong>3</strong></td></tr>
-              <tr><td>Tank Paladin</td><td className="center">3</td><td className="center">+1 (Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Feral/Balance Druid DPS / Enh Shaman</td><td className="center">3</td><td className="center">+1 (Haste Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Any of the above + Weapon enabled</td><td className="center">3</td><td className="center">+pots +1</td><td className="center"><strong>+1</strong></td></tr>
+              <tr><td>Tank (non-Paladin)</td><td className="center">3</td><td className="center">+1 (Haste Pot)</td><td className="center"><strong>4</strong></td></tr>
+              <tr><td>Tank Paladin</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
+              <tr><td>Any of the above + Weapon enabled</td><td className="center">3</td><td className="center">+pots +1</td><td className="center"><strong>5</strong></td></tr>
             </tbody>
           </table>
         </div>
@@ -758,16 +768,21 @@ export function weaponBuffType(player)`}</CodeBlock>
         <div className="dev-pipeline">
           <PipelineStep num="1" title="Logged-in user loads the page">
             <code>SnitchbotApp</code> fetches <code>/api/settings/buffs</code> on session load.
-            The response is stored in <code>mandatory</code> state.
+            The response is stored in <code>mandatory</code> state and passed to all client-side scoring.
           </PipelineStep>
           <PipelineStep num="2" title="mandatory is passed down">
             <code>SnitchbotApp</code> → <code>PlayerTable</code> → <code>score(p, mandatory)</code><br />
             <code>SnitchbotApp</code> → <code>PlayerPanel</code> → <code>score(p, mandatory)</code><br />
-            <code>/api/players</code> server-side → <code>score(p)</code> (always uses DEFAULT, not user settings — limitation)
+            <code>/api/players</code> and <code>/api/players/[name]</code> query <code>user_settings</code> from the DB
+            and pass the user's <code>mandatory</code> to all <code>score()</code> calls server-side.
           </PipelineStep>
-          <PipelineStep num="3" title="User changes settings">
-            <code>/settings</code> page POSTs to <code>/api/settings/buffs</code>. Next time the main app loads,
-            it fetches the updated settings.
+          <PipelineStep num="3" title="Player detail page">
+            <code>/api/players/[name]</code> returns <code>{'{ raids, mandatory }'}</code> — the mandatory config is
+            included so the client can use it for client-side scoring in <code>RaidDetail</code> without a separate fetch.
+          </PipelineStep>
+          <PipelineStep num="4" title="User changes settings">
+            <code>/settings</code> page POSTs to <code>/api/settings/buffs</code>. Next time any page loads,
+            it fetches the updated settings and all scores recompute accordingly.
           </PipelineStep>
         </div>
       </Section>
@@ -873,21 +888,17 @@ export function weaponBuffType(player)`}</CodeBlock>
           <PipelineStep num="1" title="Edit files locally">
             All source files are in <code>C:\Users\freem\Guidevision.eu\src\</code>.
           </PipelineStep>
-          <PipelineStep num="2" title="Deploy to preview">
-            <code>python push_preview.py</code> — pushes to <code>vitoc82-se/Snitchbot</code> (main branch).
-            Vercel auto-builds. Usually ready in 60–90 seconds.
+          <PipelineStep num="2" title="Deploy">
+            <code>python push_all.py</code> — creates an atomic commit on <code>vitoc82-se/Snitchbot</code> (main branch).
+            Vercel auto-builds from that SHA. Usually live in 60–90 seconds.
           </PipelineStep>
-          <PipelineStep num="3" title="Test on preview">
-            Visit <code>https://new.snitchbot.app</code>. Test the golden path: paste a log, check table, open panel, save report, check dashboard.
-          </PipelineStep>
-          <PipelineStep num="4" title="Deploy to live (when ready)">
-            <code>python push_all.py</code> — pushes to <code>vitoc82-se/USETHEPOTS</code>.
-            Do NOT do this until preview is fully tested.
+          <PipelineStep num="3" title="Verify">
+            Visit <code>https://snitchbot.app</code>. Test the golden path: paste a log, check table, open panel, save report, check dashboard.
           </PipelineStep>
         </div>
 
         <h3 className="readme-h3">Adding a new file to deployments</h3>
-        <p style={{ color: '#888', fontSize: '.88rem' }}>Add an entry to the <code>FILES</code> dict in <strong>both</strong> push scripts:</p>
+        <p style={{ color: '#888', fontSize: '.88rem' }}>Add an entry to the <code>FILES</code> dict in <code>push_all.py</code>:</p>
         <CodeBlock>{`FILES = {
   # ... existing entries ...
   "pages/api/my-new-route.js": os.path.join(SRC, "pages", "api", "my-new-route.js"),
@@ -895,9 +906,9 @@ export function weaponBuffType(player)`}</CodeBlock>
 
         <h3 className="readme-h3">Adding new CSS</h3>
         <p style={{ color: '#888', fontSize: '.88rem' }}>
-          CSS is append-only — push scripts fetch the remote <code>globals.css</code>, check if a marker comment
-          already exists, and append new blocks if not. Never overwrites existing CSS.
-          To add new styles, add a block to <code>CSS_BLOCKS</code> in <code>push_preview.py</code>:
+          CSS is append-only — the push script fetches the remote <code>globals.css</code>, checks if a marker comment
+          already exists, and appends new blocks if not. Never overwrites existing CSS.
+          To add new styles, add a block to <code>CSS_BLOCKS</code> in <code>push_all.py</code>:
         </p>
         <CodeBlock>{`MY_CSS = """
 /* ── My new section ──────────────────────────────────────────────────────── */
@@ -909,8 +920,7 @@ CSS_BLOCKS = [
   ("/* ── My new section", MY_CSS),
 ]`}</CodeBlock>
         <p style={{ color: '#666', fontSize: '.82rem' }}>
-          Copy the same block to <code>push_all.py</code> when ready to go live.
-          To <strong>modify</strong> existing CSS, edit the remote file via GitHub web UI or add override rules in a new block.
+          To <strong>modify</strong> existing CSS, edit the remote file via GitHub web UI or add override rules in a new block with a new marker.
         </p>
       </Section>
 
@@ -957,11 +967,6 @@ CSS_BLOCKS = [
                 <td className="readme-note">Recomputed on every API call. Intentional so scoring logic changes apply retroactively.</td>
               </tr>
               <tr>
-                <td>Dashboard player scores ignore user's mandatory settings</td>
-                <td className="readme-note" style={{ color: '#f5c842' }}>Medium</td>
-                <td className="readme-note">/api/players always uses DEFAULT_MANDATORY, not the viewing user's settings.</td>
-              </tr>
-              <tr>
                 <td>Some weapon enchant IDs unconfirmed</td>
                 <td className="readme-note" style={{ color: '#4caf50' }}>Low</td>
                 <td className="readme-note">Superior Wizard Oil (2650) not yet seen in live logs. IDs 2636, 2643, 2713 seen but unidentified.</td>
@@ -977,9 +982,9 @@ CSS_BLOCKS = [
                 <td className="readme-note">A component crash brings down the whole page.</td>
               </tr>
               <tr>
-                <td>Single Neon DB for live + preview</td>
-                <td className="readme-note" style={{ color: '#e05555' }}>High</td>
-                <td className="readme-note">Schema migrations affect live data immediately. Test migrations carefully.</td>
+                <td>Schema migrations run against live DB directly</td>
+                <td className="readme-note" style={{ color: '#f5c842' }}>Medium</td>
+                <td className="readme-note">No migration tool or staging DB. Run SQL via psycopg2 and verify carefully — affects live data immediately.</td>
               </tr>
               <tr>
                 <td>Admin password in env var (not hashed)</td>
