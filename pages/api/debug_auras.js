@@ -11,7 +11,7 @@ async function getToken() {
 }
 
 export default async function handler(req, res) {
-  const { code, player } = req.query;
+  const { code, player, fight: fightName } = req.query;
   if (!code) return res.status(400).json({ error: 'Missing ?code=' });
 
   const token = await getToken();
@@ -33,7 +33,9 @@ export default async function handler(req, res) {
   const actorMap = {};
   (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
 
-  const fight = fights[0];
+  const fight = (fightName
+    ? fights.find(f => f.name.toLowerCase().includes(fightName.toLowerCase()))
+    : null) ?? fights[0];
   const { data: d2 } = await fetch(WCL_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
