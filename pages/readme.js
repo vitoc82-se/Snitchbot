@@ -46,7 +46,7 @@ const ELIXIRS = [
   { name: 'Elixir of Major Mageblood',    type: 'Guardian', id: 28509 },
   { name: 'Elixir of Draenic Wisdom',     type: 'Guardian', id: 39627 },
   { name: 'Elixir of the Sages',          type: 'Guardian', id: 17535 },
-  { name: 'Gift of Arthas',               type: 'Guardian', id: 9088  },
+  { name: 'Gift of Arthas',               type: 'Guardian', id: 11371 },
 ];
 
 const POTIONS = [
