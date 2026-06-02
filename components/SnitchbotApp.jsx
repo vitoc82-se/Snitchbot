@@ -8,25 +8,54 @@ import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
 import { isPrepared, missingList, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 
+const LOOKUP_SERVERS = [
+  { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
+  { label: 'Crusader Strike — US', slug: 'crusader-strike', region: 'US' },
+  { label: 'Wild Growth — US',  slug: 'wild-growth',     region: 'US' },
+  { label: 'Lone Wolf — US',    slug: 'lone-wolf',        region: 'US' },
+];
+
 function PlayerLookupTeaser() {
-  const [name, setName] = useState('');
+  const [name,   setName]   = useState('');
+  const [server, setServer] = useState('thunderstrike');
+  const [region, setRegion] = useState('EU');
+
+  const pickServer = (e) => {
+    const match = LOOKUP_SERVERS.find(s => s.slug === e.target.value);
+    if (match) { setServer(match.slug); setRegion(match.region); }
+  };
 
   const go = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    window.location.href = `/lookup?name=${encodeURIComponent(name.trim())}&server=thunderstrike&region=EU`;
+    window.location.href = `/lookup?name=${encodeURIComponent(name.trim())}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`;
+  };
+
+  const selectStyle = {
+    width: '100%', background: '#0a0a0a', color: '#ccc',
+    border: '1px solid #2a2a2a', borderRadius: 4,
+    padding: '.45rem .6rem', fontSize: '.82rem', cursor: 'pointer',
   };
 
   return (
-    <form onSubmit={go} style={{ display: 'flex', gap: '.5rem' }}>
+    <form onSubmit={go} style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
       <input
         type="text"
         placeholder="Character name…"
         value={name}
         onChange={e => setName(e.target.value)}
-        style={{ flex: 1, fontSize: '.88rem' }}
+        style={{ width: '100%', fontSize: '.88rem' }}
       />
-      <button className="btn" type="submit" disabled={!name.trim()}>Look up</button>
+      <div style={{ display: 'flex', gap: '.4rem' }}>
+        <select value={server} onChange={pickServer} style={{ ...selectStyle, flex: 1 }}>
+          {LOOKUP_SERVERS.map(s => (
+            <option key={s.slug} value={s.slug}>{s.label}</option>
+          ))}
+        </select>
+        <button className="btn" type="submit" disabled={!name.trim()} style={{ flexShrink: 0 }}>
+          Look up
+        </button>
+      </div>
     </form>
   );
 }
