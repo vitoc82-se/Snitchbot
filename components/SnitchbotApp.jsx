@@ -8,6 +8,47 @@ import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
 import { isPrepared, missingList, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 
+function PlayerLookupTeaser() {
+  const [name, setName] = useState('');
+
+  const go = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    const url = `/lookup?name=${encodeURIComponent(name.trim())}&server=thunderstrike&region=EU`;
+    window.location.href = url;
+  };
+
+  return (
+    <div style={{
+      margin: '1.25rem 0',
+      padding: '1rem 1.25rem',
+      background: '#0d0d0d',
+      border: '1px solid #1e1e1e',
+      borderRadius: 6,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '1rem',
+      flexWrap: 'wrap',
+    }}>
+      <div style={{ flex: '0 0 auto' }}>
+        <div style={{ color: '#a335ee', fontWeight: 700, fontSize: '.9rem' }}>Player Lookup</div>
+        <div style={{ color: '#555', fontSize: '.75rem', marginTop: '.15rem' }}>WCL rankings + consume history</div>
+      </div>
+      <form onSubmit={go} style={{ display: 'flex', gap: '.5rem', flex: 1, minWidth: 220 }}>
+        <input
+          type="text"
+          placeholder="Character name…"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          style={{ flex: 1, padding: '.4rem .65rem', fontSize: '.88rem' }}
+        />
+        <button className="btn btn-sm" type="submit" disabled={!name.trim()}>Look up</button>
+      </form>
+      <a href="/lookup" className="subtle-link" style={{ fontSize: '.78rem', whiteSpace: 'nowrap' }}>Advanced →</a>
+    </div>
+  );
+}
+
 function DiscordBadge({ username }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -157,6 +198,9 @@ export default function SnitchbotApp({ initialCode }) {
           </div>
         </div>
         <p className="subtitle">Check who forgot their consumables before the pull.</p>
+
+        {/* Quick-access Player Lookup */}
+        <PlayerLookupTeaser />
 
         <div className="input-row">
           <input

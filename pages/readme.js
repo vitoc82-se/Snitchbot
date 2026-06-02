@@ -244,6 +244,39 @@ function HowItWorks() {
         </p>
       </Section>
 
+      <Section title="Player Lookup">
+        <p>
+          The <strong>Player Lookup</strong> tool lets you search any player by name and realm — no log URL needed.
+          It pulls their full TBC raid history directly from Warcraft Logs and shows WCL rankings alongside
+          consumable usage, giving you a quick overview of both how well they perform and how prepared they show up.
+        </p>
+
+        <h3 className="readme-h3">How to use it</h3>
+        <p>
+          Type a character name on the home page or go to <strong>/lookup</strong>, pick a realm, and hit Look up.
+          The first search takes 20–60 seconds while data is fetched from WCL. After that, results are cached
+          for 24 hours and load instantly. Hit <strong>↻ Refresh data</strong> on the profile page to force a fresh fetch.
+        </p>
+
+        <h3 className="readme-h3">What you see</h3>
+        <ul>
+          <li><strong>Combined Rating</strong> — a single Legendary / Epic / Rare / Uncommon / Common badge. Weighted 60% WCL rank % + 40% consumable compliance rate.</li>
+          <li><strong>Per-zone collapsible tables</strong> — Karazhan, Gruul/Mag, SSC/TK (and more as content unlocks). Click a zone to expand the full boss breakdown.</li>
+          <li><strong>Per-boss data</strong> — Best %, Median %, Best DPS/HPS, Kill count, Fastest kill, and every consumable column (Flask, Elixirs, Food, Weapon, Pot) based on the player's best logged kill for that boss.</li>
+        </ul>
+
+        <h3 className="readme-h3">Sharing a profile</h3>
+        <p>
+          Every lookup generates a shareable URL: <code>/lookup?name=Vitok&amp;server=thunderstrike&amp;region=EU</code>.
+          Anyone with the link gets instant results (from cache) or triggers a fresh fetch if the profile is stale.
+        </p>
+
+        <p className="readme-note">
+          Consumable data is from the best logged kill per boss, not averaged across all kills. A player who
+          potted on their highest-ranked kill but not on wipes will show ✓ for that boss.
+        </p>
+      </Section>
+
       <Section title="Saved Raids & Player History">
         <p>
           Login with Discord to save reports and build a history of your raid team's consumable habits over time.

@@ -119,6 +119,52 @@ export default function AdminPage() {
               <StatCard number={db?.avgPlayersPerAttempt} label="Avg Players / Attempt" />
             </div>
 
+            <div className="admin-stats-row" style={{ marginTop: '.75rem' }}>
+              <StatCard number={db?.lookupTotal}   label="Players Looked Up"    sub="all time" color="#a335ee" />
+              <StatCard number={db?.lookupLast7d}  label="Lookups (7d)"         color={db?.lookupLast7d > 0 ? '#4caf50' : '#888'} />
+              <StatCard number={db?.lookupErrors}  label="Lookup Errors"        color={db?.lookupErrors > 0 ? '#e05555' : '#888'} />
+            </div>
+
+            {/* ── Recent player lookups ─────────────────────────────────── */}
+            {(db?.recentLookups?.length > 0) && (
+              <>
+                <SectionTitle sub="Most recently looked up players">Recent Player Lookups</SectionTitle>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>Player</th>
+                        <th style={{ textAlign: 'left' }}>Class · Role</th>
+                        <th style={{ textAlign: 'left' }}>Guild</th>
+                        <th style={{ textAlign: 'left' }}>Server</th>
+                        <th style={{ textAlign: 'left' }}>Fetched</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.recentLookups.map((r, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight: 'bold' }}>
+                            <a href={`/lookup?name=${encodeURIComponent(r.name)}&server=${encodeURIComponent(r.server)}&region=${encodeURIComponent(r.region)}`}
+                              style={{ color: '#ddd', textDecoration: 'none' }}>
+                              {r.name}
+                            </a>
+                          </td>
+                          <td style={{ color: '#888', fontSize: '.82rem' }}>
+                            {r.className}{r.role && ` · ${r.role}`}
+                          </td>
+                          <td style={{ color: '#666', fontSize: '.82rem' }}>{r.guild || '—'}</td>
+                          <td style={{ color: '#555', fontSize: '.82rem' }}>{r.server} ({r.region})</td>
+                          <td style={{ color: '#555', fontSize: '.82rem' }}>
+                            {r.fetchedAt ? new Date(r.fetchedAt).toLocaleDateString() : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
             {/* ── Registered users ──────────────────────────────────────── */}
             <SectionTitle sub={`${db?.users?.length} Discord accounts · ${db?.usersWithCustomSettings} have saved custom settings`}>
               Registered Users

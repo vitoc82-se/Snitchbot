@@ -15,6 +15,8 @@ export default async function handler(req, res) {
       reportAgg,
       allReports,
       settingsRows,
+      lookupAgg,
+      recentLookups,
     ] = await Promise.all([
       getStats(),
 
@@ -58,6 +60,26 @@ export default async function handler(req, res) {
 
       // Settings rows
       sql`SELECT mandatory FROM user_settings`,
+
+      // Player lookup stats
+      sql`
+        SELECT
+          COUNT(*) FILTER (WHERE fetch_status = 'done')                           AS total_lookups,
+          COUNT(*) FILTER (WHERE fetch_status = 'done'
+                           AND fetched_at > now() - interval '7 days')            AS lookups_7d,
+          COUNT(*) FILTER (WHERE fetch_status = 'error')                          AS errors
+        FROM player_lookup_profiles
+      `.catch(() => [{ total_lookups: 0, lookups_7d: 0, errors: 0 }]),
+
+      // Most recent lookups
+      sql`
+        SELECT name, server_slug, server_region, class_name, role, guild_name,
+               fetch_status, fetched_at
+        FROM player_lookup_profiles
+        WHERE fetch_status = 'done'
+        ORDER BY fetched_at DESC
+        LIMIT 20
+      `.catch(() => []),
     ]);
 
     // ── Boss frequency + kill rate + player count from JSONB ────────────────
@@ -132,6 +154,20 @@ export default async function handler(req, res) {
 
         // Boss leaderboard
         bossList,
+
+        // Player lookup
+        lookupTotal:  Number(lookupAgg[0]?.total_lookups ?? 0),
+        lookupLast7d: Number(lookupAgg[0]?.lookups_7d    ?? 0),
+        lookupErrors: Number(lookupAgg[0]?.errors        ?? 0),
+        recentLookups: recentLookups.map(r => ({
+          name:      r.name,
+          server:    r.server_slug,
+          region:    r.server_region,
+          className: r.class_name,
+          role:      r.role,
+          guild:     r.guild_name,
+          fetchedAt: r.fetched_at,
+        })),
 
         // Per-user roster
         users: userRows.map(u => ({
