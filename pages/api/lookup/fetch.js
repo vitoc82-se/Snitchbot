@@ -167,7 +167,9 @@ export default async function handler(req, res) {
     if (!allEncounters.length) throw new Error('Could not load TBC encounter list from WCL');
 
     // ── 2. Character info + all encounter rankings (Fresh API, one query) ──
-    const encAliases = allEncounters.map(e => `e${e.rankId}: encounterRankings(encounterID: ${e.rankId})`).join('\n');
+    const encAliases = allEncounters.map(e =>
+      `e${e.rankId}: encounterRankings(encounterID: ${e.rankId}) { totalKills bestAmount medianPerformance fastestKill ranks { rankPercent spec duration startTime report { code startTime fightID } } }`
+    ).join('\n');
     const charResult = await wclFreshQuery(`
       query($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
@@ -248,7 +250,7 @@ export default async function handler(req, res) {
           query($code: String!) {
             reportData { report(code: $code) {
               masterData { actors(type: "Player") { id name } }
-              buffs: table(dataType: Buffs, startTime: 0, endTime: 9999999999) { data }
+              buffs: table(dataType: Buffs, startTime: 0, endTime: 9999999999)
               ${bossAliases}
             }}
           }
