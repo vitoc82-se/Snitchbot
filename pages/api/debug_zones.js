@@ -4,30 +4,23 @@ export default async function handler(req, res) {
   const { name = 'Vitoduud', server = 'thunderstrike', region = 'EU' } = req.query;
 
   try {
-    const partData = await wclFreshQuery(`{
-      worldData {
-        ssc_tk: zone(id: 1010) { id name partitions { id name default } }
-        kara:   zone(id: 1007) { id name partitions { id name default } }
-      }
-    }`);
-
-    const partitions = partData?.worldData?.ssc_tk?.partitions || [];
-
-    const partTests = {};
-    for (const part of partitions) {
-      const r = await wclFreshQuery(`
-        query($n:String!,$s:String!,$r:String!) {
-          characterData {
-            character(name:$n, serverSlug:$s, serverRegion:$r) {
-              e731: encounterRankings(encounterID: 731, partition: ${part.id})
-            }
+    const data = await wclFreshQuery(`
+      query($n:String!,$s:String!,$r:String!) {
+        characterData {
+          character(name:$n, serverSlug:$s, serverRegion:$r) {
+            id classID name
+            zoneRankings
+            zrDps:    zoneRankings(metric: dps)
+            zrHps:    zoneRankings(metric: hps)
+            zr1010:   zoneRankings(zoneID: 1010)
+            zr1010dps: zoneRankings(zoneID: 1010, metric: dps)
+            zr1010p2: zoneRankings(zoneID: 1010, partition: 2)
           }
         }
-      `, { n: name, s: server, r: region }).catch(e => e.message);
-      partTests[`p${part.id}_${part.name}`] = r?.characterData?.character?.e731 ?? r;
-    }
+      }
+    `, { n: name, s: server, r: region });
 
-    return res.json({ partitions, partTests });
+    return res.json(data?.characterData?.character ?? { notFound: true });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
