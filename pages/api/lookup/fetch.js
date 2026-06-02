@@ -168,7 +168,7 @@ export default async function handler(req, res) {
 
     // ── 2. Character info + all encounter rankings (Fresh API, one query) ──
     const encAliases = allEncounters.map(e =>
-      `e${e.rankId}: encounterRankings(encounterID: ${e.rankId}) { totalKills bestAmount medianPerformance fastestKill ranks { rankPercent spec duration startTime report { code startTime fightID } } }`
+      `e${e.rankId}: encounterRankings(encounterID: ${e.rankId})`
     ).join('\n');
     const charResult = await wclFreshQuery(`
       query($name: String!, $serverSlug: String!, $serverRegion: String!) {
