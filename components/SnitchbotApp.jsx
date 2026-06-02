@@ -14,38 +14,20 @@ function PlayerLookupTeaser() {
   const go = (e) => {
     e.preventDefault();
     if (!name.trim()) return;
-    const url = `/lookup?name=${encodeURIComponent(name.trim())}&server=thunderstrike&region=EU`;
-    window.location.href = url;
+    window.location.href = `/lookup?name=${encodeURIComponent(name.trim())}&server=thunderstrike&region=EU`;
   };
 
   return (
-    <div style={{
-      margin: '1.25rem 0',
-      padding: '1rem 1.25rem',
-      background: '#0d0d0d',
-      border: '1px solid #1e1e1e',
-      borderRadius: 6,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '1rem',
-      flexWrap: 'wrap',
-    }}>
-      <div style={{ flex: '0 0 auto' }}>
-        <div style={{ color: '#a335ee', fontWeight: 700, fontSize: '.9rem' }}>Player Lookup</div>
-        <div style={{ color: '#555', fontSize: '.75rem', marginTop: '.15rem' }}>WCL rankings + consume history</div>
-      </div>
-      <form onSubmit={go} style={{ display: 'flex', gap: '.5rem', flex: 1, minWidth: 220 }}>
-        <input
-          type="text"
-          placeholder="Character name…"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          style={{ flex: 1, padding: '.4rem .65rem', fontSize: '.88rem' }}
-        />
-        <button className="btn btn-sm" type="submit" disabled={!name.trim()}>Look up</button>
-      </form>
-      <a href="/lookup" className="subtle-link" style={{ fontSize: '.78rem', whiteSpace: 'nowrap' }}>Advanced →</a>
-    </div>
+    <form onSubmit={go} style={{ display: 'flex', gap: '.5rem' }}>
+      <input
+        type="text"
+        placeholder="Character name…"
+        value={name}
+        onChange={e => setName(e.target.value)}
+        style={{ flex: 1, fontSize: '.88rem' }}
+      />
+      <button className="btn" type="submit" disabled={!name.trim()}>Look up</button>
+    </form>
   );
 }
 
@@ -197,22 +179,42 @@ export default function SnitchbotApp({ initialCode }) {
             )}
           </div>
         </div>
-        <p className="subtitle">Check who forgot their consumables before the pull.</p>
+        {/* ── Tool cards ───────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
 
-        {/* Quick-access Player Lookup */}
-        <PlayerLookupTeaser />
+          {/* Log Analyzer */}
+          <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: 8, padding: '1.25rem' }}>
+            <div style={{ marginBottom: '.6rem' }}>
+              <div style={{ color: '#f5c842', fontWeight: 700, fontSize: '1rem' }}>Log Analyzer</div>
+              <div style={{ color: '#555', fontSize: '.8rem', marginTop: '.2rem' }}>
+                Paste a Warcraft Logs URL to instantly see who was missing buffs, elixirs, food and pots on every pull.
+              </div>
+            </div>
+            <div className="input-row" style={{ margin: 0 }}>
+              <input
+                type="text"
+                placeholder="https://fresh.warcraftlogs.com/reports/…"
+                value={logUrl}
+                onChange={e => setLogUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && analyze()}
+                style={{ fontSize: '.88rem' }}
+              />
+              <button className="btn" onClick={analyze} disabled={loading}>
+                {loading ? 'Analyzing…' : 'Check'}
+              </button>
+            </div>
+          </div>
 
-        <div className="input-row">
-          <input
-            type="text"
-            placeholder="Paste Warcraft Logs URL..."
-            value={logUrl}
-            onChange={e => setLogUrl(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && analyze()}
-          />
-          <button className="btn" onClick={analyze} disabled={loading}>
-            {loading ? 'Analyzing...' : 'Check'}
-          </button>
+          {/* Player Lookup */}
+          <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: 8, padding: '1.25rem' }}>
+            <div style={{ marginBottom: '.6rem' }}>
+              <div style={{ color: '#a335ee', fontWeight: 700, fontSize: '1rem' }}>Player Lookup</div>
+              <div style={{ color: '#555', fontSize: '.8rem', marginTop: '.2rem' }}>
+                Search any player by name to see their WCL rankings and consumable usage across every TBC boss.
+              </div>
+            </div>
+            <PlayerLookupTeaser />
+          </div>
         </div>
 
         {loading && <LoadingStatus step={loadStep} />}
