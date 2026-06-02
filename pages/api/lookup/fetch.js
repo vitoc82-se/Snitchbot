@@ -5,7 +5,9 @@
  * Subsequent lookups for the same player are served instantly from the cache.
  */
 import sql from '../../../lib/db';
-import { wclQuery } from '../../../lib/wcl';
+// wclFreshQuery  → fresh.warcraftlogs.com (character lookups, zone data)
+// wclQuery       → warcraftlogs.com      (report CombatantInfo/cast events)
+import { wclQuery, wclFreshQuery } from '../../../lib/wcl';
 import {
   PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS,
@@ -13,10 +15,11 @@ import {
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
-// Keywords to identify TBC raid zones — checked case-insensitively against zone name
+// TBC zone keywords — matched against actual Fresh WCL zone names.
+// Fresh combines zones: "SSC / TK", "BT / Hyjal", "Gruul / Magtheridon".
 const TBC_KEYWORDS = [
-  'karazhan', 'gruul', 'magtheridon', 'serpentshrine',
-  'the eye', 'tempest keep', 'hyjal', 'black temple', 'sunwell',
+  'karazhan', 'gruul', 'magtheridon', 'ssc', 'hyjal',
+  'sunwell', "zul'aman", 'serpentshrine', 'black temple',
 ];
 
 function isTBCZone(name) {
@@ -143,40 +146,21 @@ export default async function handler(req, res) {
     `;
     const playerId = profile.id;
 
-    // ── 1. Discover TBC raid zones from WCL worldData ─────────────────────
-    // Try multiple strategies: plain zones list, then expansion-scoped lists.
-    // WCL Classic content sometimes lives under a different expansion ID.
-    const zonesData = await wclQuery(`{
-      worldData {
-        allZones: zones { id name encounters { id name } }
-        exp2:  expansion(id:  2) { zones { id name encounters { id name } } }
-        exp9:  expansion(id:  9) { zones { id name encounters { id name } } }
-        exp10: expansion(id: 10) { zones { id name encounters { id name } } }
-      }
-    }`).catch(() => null);
-
-    // Merge all zone lists, deduplicate by id
-    const allZones = new Map();
-    const addZones = (list) => (list || []).forEach(z => { if (z?.id) allZones.set(z.id, z); });
-    addZones(zonesData?.worldData?.allZones);
-    addZones(zonesData?.worldData?.exp2?.zones);
-    addZones(zonesData?.worldData?.exp9?.zones);
-    addZones(zonesData?.worldData?.exp10?.zones);
-
-    const tbcZones = [...allZones.values()].filter(z => isTBCZone(z.name));
+    // ── 1. Discover TBC zones via the Fresh WCL API ───────────────────────
+    const zonesData = await wclFreshQuery(`{ worldData { zones { id name encounters { id name } } } }`);
+    const tbcZones  = (zonesData?.worldData?.zones || []).filter(z => isTBCZone(z.name));
     if (!tbcZones.length) throw new Error(
-      `Could not identify TBC zones. WCL returned ${allZones.size} total zones. ` +
-      `Zone names: ${[...allZones.values()].slice(0, 10).map(z => z.name).join(', ')}`
+      `No TBC zones found. Got: ${(zonesData?.worldData?.zones || []).map(z => z.name).join(', ')}`
     );
 
-    // ── 2. Character info + zone rankings in one batched query ────────────
+    // ── 2. Character info + zone rankings (Fresh API) ─────────────────────
     const zoneAliases = tbcZones.map(z => `z${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');
-    const charResult  = await wclQuery(`
+    const charResult  = await wclFreshQuery(`
       query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
           character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
             id classID
-            guilds { guild { name } }
+            guilds { id name }
             ${zoneAliases}
           }
         }
@@ -187,7 +171,7 @@ export default async function handler(req, res) {
     if (!char) throw new Error(`Player "${cleanName}" not found on Warcraft Logs for ${cleanSlug} (${cleanRegion}). Check spelling and realm slug.`);
 
     const className = CLASS_NAMES[char.classID] || 'Unknown';
-    const guildName = char.guilds?.[0]?.guild?.name || null;
+    const guildName = char.guilds?.[0]?.name || null;
 
     // Parse zone rankings into a flat map: encounterId → ranking row
     const rankingMap = {}; // encId → { zoneId, zoneName, bossName, rankPercent, ... }
@@ -237,7 +221,7 @@ export default async function handler(req, res) {
         .map(id => `e${id}: encounterRankings(encounterID: ${id}, limit: 1)`)
         .join('\n');
 
-      const encResult = await wclQuery(`
+      const encResult = await wclFreshQuery(`
         query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
           characterData {
             character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
