@@ -314,42 +314,112 @@ function BossRow({ b }) {
   );
 }
 
-function ZoneSection({ zone }) {
+function ZoneSection({ zone, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  // Zone-level summary stats
+  const withKills = zone.bosses.filter(b => b.totalKills > 0);
+  const withCons  = zone.bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
+  const kills     = withKills.length;
+  const avgRank   = kills
+    ? Math.round(withKills.reduce((s, b) => s + (b.rankPercent ?? 0), 0) / kills)
+    : null;
+  const consRate  = withCons.length
+    ? Math.round(withCons.reduce((s, b) => s + (b.consumeScore / b.consumeMax) * 100, 0) / withCons.length)
+    : null;
+  const fullCount = withCons.filter(b => b.consumeScore === b.consumeMax).length;
+
   const th = (label, center) => (
     <th key={label} style={{ textAlign: center ? 'center' : 'left', whiteSpace: 'nowrap', fontSize: '.75rem', color: '#555', textTransform: 'uppercase', letterSpacing: '.04em', padding: '.5rem .6rem' }}>
       {label}
     </th>
   );
+
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '.75rem', marginBottom: '.5rem' }}>
-        <h3 style={{ color: '#f5c842', fontSize: '1rem', margin: 0 }}>{zone.name}</h3>
-        <span style={{ color: '#333', fontSize: '.78rem' }}>{zone.bosses.length} bosses</span>
+    <div style={{ marginTop: '1rem', border: '1px solid #1a1a1a', borderRadius: 6, overflow: 'hidden' }}>
+
+      {/* Clickable summary row */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '1rem',
+          padding: '.75rem 1rem', cursor: 'pointer',
+          background: open ? '#0d0d0d' : '#0a0a0a',
+          userSelect: 'none',
+        }}
+      >
+        {/* Chevron */}
+        <span style={{ color: '#444', fontSize: '.8rem', width: 14, flexShrink: 0, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'none' }}>
+          ▶
+        </span>
+
+        {/* Zone name */}
+        <span style={{ color: '#f5c842', fontWeight: 600, fontSize: '.95rem', flex: '0 0 auto', minWidth: 160 }}>
+          {zone.name}
+        </span>
+
+        {/* Boss kill count */}
+        <span style={{ color: kills > 0 ? '#4caf50' : '#444', fontSize: '.82rem', flex: '0 0 auto' }}>
+          {kills}/{zone.bosses.length} kills
+        </span>
+
+        {/* Avg WCL % */}
+        {avgRank != null && (
+          <span style={{ color: parseColor(avgRank), fontWeight: 700, fontSize: '.88rem', flex: '0 0 auto' }}>
+            {avgRank}% avg
+          </span>
+        )}
+
+        {/* Consume rate */}
+        {consRate != null && (
+          <span style={{ color: consRate >= 80 ? '#4caf50' : consRate >= 50 ? '#f5c842' : '#e05555', fontSize: '.82rem', flex: '0 0 auto' }}>
+            {fullCount}/{withCons.length} full consumes
+          </span>
+        )}
+
+        {/* Mini tier badge */}
+        {avgRank != null && consRate != null && (() => {
+          const combined = Math.round(avgRank * 0.6 + consRate * 0.4);
+          const t = getTier(combined);
+          return (
+            <span style={{ color: t.color, fontSize: '.78rem', fontWeight: 700, marginLeft: 'auto', letterSpacing: '.04em' }}>
+              {t.name}
+            </span>
+          );
+        })()}
+
+        {kills === 0 && (
+          <span style={{ color: '#333', fontSize: '.78rem', marginLeft: 'auto' }}>not yet cleared</span>
+        )}
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
-              {th('Boss')}
-              {th('Kills',    true)}
-              {th('Best %',   true)}
-              {th('Median %', true)}
-              {th('Best',     true)}
-              {th('Fastest',  true)}
-              {th('Flask',    true)}
-              {th('B. Elix',  true)}
-              {th('G. Elix',  true)}
-              {th('Food',     true)}
-              {th('Weapon',   true)}
-              {th('Pot',      true)}
-              {th('Score',    true)}
-            </tr>
-          </thead>
-          <tbody>
-            {zone.bosses.map(b => <BossRow key={b.encounterId} b={b} />)}
-          </tbody>
-        </table>
-      </div>
+
+      {/* Expandable detail table */}
+      {open && (
+        <div style={{ overflowX: 'auto', borderTop: '1px solid #1a1a1a' }}>
+          <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #1a1a1a', background: '#080808' }}>
+                {th('Boss')}
+                {th('Kills',    true)}
+                {th('Best %',   true)}
+                {th('Median %', true)}
+                {th('Best',     true)}
+                {th('Fastest',  true)}
+                {th('Flask',    true)}
+                {th('B. Elix',  true)}
+                {th('G. Elix',  true)}
+                {th('Food',     true)}
+                {th('Weapon',   true)}
+                {th('Pot',      true)}
+                {th('Score',    true)}
+              </tr>
+            </thead>
+            <tbody>
+              {zone.bosses.map(b => <BossRow key={b.encounterId} b={b} />)}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -432,8 +502,14 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
         />
       </div>
 
-      {/* Per-zone boss tables */}
-      {zones.map(z => <ZoneSection key={z.name} zone={z} />)}
+      {/* Per-zone boss tables — first zone with kills is open by default */}
+      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+        {zones.map((z, i) => {
+          const hasKills = z.bosses.some(b => b.totalKills > 0);
+          const firstWithKills = zones.findIndex(z2 => z2.bosses.some(b => b.totalKills > 0));
+          return <ZoneSection key={z.name} zone={z} defaultOpen={i === firstWithKills} />;
+        })}
+      </div>
 
       {/* Legend */}
       <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #161616', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '.73rem', color: '#444' }}>
