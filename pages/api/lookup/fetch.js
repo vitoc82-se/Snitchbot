@@ -13,12 +13,16 @@ import {
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
-// Zone name fragments to identify TBC raid zones from WCL worldData
-const TBC_ZONE_PATTERNS = [
-  'Karazhan', "Gruul's Lair", "Magtheridon's Lair",
-  'Serpentshrine Cavern', 'The Eye',
-  'Hyjal Summit', 'Black Temple', 'Sunwell Plateau',
+// Keywords to identify TBC raid zones — checked case-insensitively against zone name
+const TBC_KEYWORDS = [
+  'karazhan', 'gruul', 'magtheridon', 'serpentshrine',
+  'the eye', 'tempest keep', 'hyjal', 'black temple', 'sunwell',
 ];
+
+function isTBCZone(name) {
+  const n = (name || '').toLowerCase();
+  return TBC_KEYWORDS.some(k => n.includes(k));
+}
 
 // WCL numeric classID → class name string (matches our scoring.js class names)
 const CLASS_NAMES = {
@@ -140,12 +144,30 @@ export default async function handler(req, res) {
     const playerId = profile.id;
 
     // ── 1. Discover TBC raid zones from WCL worldData ─────────────────────
-    const zonesData = await wclQuery(`{ worldData { zones { id name encounters { id name } } } }`);
-    const tbcZones  = (zonesData.worldData?.zones || []).filter(z =>
-      TBC_ZONE_PATTERNS.some(p => z.name.includes(p.replace(/'/g, '')))
-        || TBC_ZONE_PATTERNS.some(p => z.name === p)
+    // Try multiple strategies: plain zones list, then expansion-scoped lists.
+    // WCL Classic content sometimes lives under a different expansion ID.
+    const zonesData = await wclQuery(`{
+      worldData {
+        allZones: zones { id name encounters { id name } }
+        exp2:  expansion(id:  2) { zones { id name encounters { id name } } }
+        exp9:  expansion(id:  9) { zones { id name encounters { id name } } }
+        exp10: expansion(id: 10) { zones { id name encounters { id name } } }
+      }
+    }`).catch(() => null);
+
+    // Merge all zone lists, deduplicate by id
+    const allZones = new Map();
+    const addZones = (list) => (list || []).forEach(z => { if (z?.id) allZones.set(z.id, z); });
+    addZones(zonesData?.worldData?.allZones);
+    addZones(zonesData?.worldData?.exp2?.zones);
+    addZones(zonesData?.worldData?.exp9?.zones);
+    addZones(zonesData?.worldData?.exp10?.zones);
+
+    const tbcZones = [...allZones.values()].filter(z => isTBCZone(z.name));
+    if (!tbcZones.length) throw new Error(
+      `Could not identify TBC zones. WCL returned ${allZones.size} total zones. ` +
+      `Zone names: ${[...allZones.values()].slice(0, 10).map(z => z.name).join(', ')}`
     );
-    if (!tbcZones.length) throw new Error('Could not identify TBC zones from WCL data');
 
     // ── 2. Character info + zone rankings in one batched query ────────────
     const zoneAliases = tbcZones.map(z => `z${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');

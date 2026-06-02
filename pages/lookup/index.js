@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { classColor } from '../../lib/scoring';
 
-// WCL percentile tier colours (mirrors WoW armory parse colours)
+// WCL parse tier colours
 function parseColor(pct) {
   if (pct == null || pct === 0) return '#555';
   if (pct >= 99) return '#e6cc80';
@@ -16,67 +16,70 @@ function parseColor(pct) {
 }
 
 function scoreColor(s, mx) {
-  if (!mx) return '#555';
+  if (mx == null || mx === 0) return '#555';
   const p = s / mx;
-  if (p >= 1)    return '#4caf50';
-  if (p >= 0.6)  return '#f5c842';
+  if (p >= 1)   return '#4caf50';
+  if (p >= 0.6) return '#f5c842';
   return '#e05555';
 }
 
 function fmtMs(ms) {
   if (!ms) return '—';
-  const total = Math.round(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  const t = Math.round(ms / 1000);
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 }
 
-function fmtNum(n) {
-  if (n == null) return '—';
-  return Number(n).toFixed(1);
+function ConsumeTick({ val, na }) {
+  if (na || val === null || val === undefined) return <span style={{ color: '#333' }}>—</span>;
+  if (val) return <span style={{ color: '#4caf50' }}>✓</span>;
+  return <span style={{ color: '#e05555' }}>✗</span>;
 }
 
-function tick(val, na = false) {
-  if (na)   return <span style={{ color: '#444' }}>—</span>;
-  if (val)  return <span style={{ color: '#4caf50' }}>✓</span>;
-  if (val === false) return <span style={{ color: '#e05555' }}>✗</span>;
-  return <span style={{ color: '#444' }}>—</span>; // null = no data
-}
-
+const REGIONS = ['EU', 'US', 'KR', 'TW'];
 const KNOWN_SERVERS = [
-  { label: 'Thunderstrike (EU)', slug: 'thunderstrike', region: 'EU' },
-  { label: 'Crusader Strike (US)', slug: 'crusader-strike', region: 'US' },
-  { label: 'Wild Growth (US)', slug: 'wild-growth', region: 'US' },
-  { label: 'Lone Wolf (US)', slug: 'lone-wolf', region: 'US' },
+  { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
+  { label: 'Crusader Strike — US', slug: 'crusader-strike', region: 'US' },
+  { label: 'Wild Growth — US',  slug: 'wild-growth',     region: 'US' },
+  { label: 'Lone Wolf — US',    slug: 'lone-wolf',        region: 'US' },
+  { label: 'Other (enter below)', slug: '__custom',       region: 'EU' },
 ];
+
+function groupByZone(bosses) {
+  const map = {};
+  for (const b of bosses) {
+    if (!map[b.zoneId]) map[b.zoneId] = { name: b.zoneName, bosses: [] };
+    map[b.zoneId].bosses.push(b);
+  }
+  return Object.values(map);
+}
 
 // ── Search form ──────────────────────────────────────────────────────────────
 
-function SearchForm({ onSearch, loading }) {
-  const [name,   setName]   = useState('');
-  const [server, setServer] = useState('thunderstrike');
-  const [region, setRegion] = useState('EU');
+function SearchForm({ initialName, initialServer, initialRegion, onSearch, loading }) {
+  const [name,   setName]   = useState(initialName   || '');
+  const [slug,   setSlug]   = useState(initialServer || 'thunderstrike');
+  const [region, setRegion] = useState(initialRegion || 'EU');
   const [custom, setCustom] = useState(false);
 
-  const handleServer = (e) => {
+  const pickServer = (e) => {
     const v = e.target.value;
-    if (v === '__custom') { setCustom(true); setServer(''); return; }
-    const match = KNOWN_SERVERS.find(s => s.slug === v);
-    if (match) { setServer(match.slug); setRegion(match.region); }
+    if (v === '__custom') { setCustom(true); setSlug(''); return; }
+    const m = KNOWN_SERVERS.find(s => s.slug === v);
+    if (m) { setSlug(m.slug); setRegion(m.region); }
     setCustom(false);
   };
 
   const submit = (e) => {
     e.preventDefault();
-    if (!name.trim() || !server.trim()) return;
-    onSearch({ name: name.trim(), server: server.trim(), region });
+    if (name.trim() && slug.trim()) onSearch({ name: name.trim(), server: slug.trim(), region });
   };
 
   return (
-    <form onSubmit={submit}>
-      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', alignItems: 'flex-end', marginTop: '1.5rem' }}>
-        <div style={{ flex: '2 1 200px' }}>
-          <label style={{ display: 'block', color: '#888', fontSize: '.8rem', marginBottom: '.3rem' }}>
+    <form onSubmit={submit} style={{ maxWidth: 620, marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '.85rem' }}>
+
+        <div>
+          <label style={{ display: 'block', color: '#888', fontSize: '.8rem', marginBottom: '.3rem', letterSpacing: '.03em', textTransform: 'uppercase' }}>
             Character name
           </label>
           <input
@@ -84,340 +87,402 @@ function SearchForm({ onSearch, loading }) {
             placeholder="e.g. Vitok"
             value={name}
             onChange={e => setName(e.target.value)}
-            style={{ width: '100%' }}
+            autoComplete="off"
+            style={{ width: '100%', fontSize: '1rem', padding: '.6rem .75rem' }}
           />
         </div>
 
-        <div style={{ flex: '2 1 200px' }}>
-          <label style={{ display: 'block', color: '#888', fontSize: '.8rem', marginBottom: '.3rem' }}>
+        <div>
+          <label style={{ display: 'block', color: '#888', fontSize: '.8rem', marginBottom: '.3rem', letterSpacing: '.03em', textTransform: 'uppercase' }}>
             Realm
           </label>
           <select
-            onChange={handleServer}
-            style={{ width: '100%', background: '#111', color: '#ddd', border: '1px solid #333', borderRadius: 4, padding: '.5rem', fontSize: '.9rem' }}
+            defaultValue="thunderstrike"
+            onChange={pickServer}
+            style={{
+              width: '100%', background: '#111', color: '#ddd',
+              border: '1px solid #333', borderRadius: 4,
+              padding: '.6rem .75rem', fontSize: '.95rem', cursor: 'pointer',
+            }}
           >
             {KNOWN_SERVERS.map(s => (
               <option key={s.slug} value={s.slug}>{s.label}</option>
             ))}
-            <option value="__custom">Other (enter manually)</option>
           </select>
+
           {custom && (
-            <div style={{ display: 'flex', gap: '.5rem', marginTop: '.4rem' }}>
+            <div style={{ display: 'flex', gap: '.5rem', marginTop: '.5rem' }}>
               <input
                 type="text"
-                placeholder="server-slug"
-                value={server}
-                onChange={e => setServer(e.target.value)}
-                style={{ flex: 2 }}
+                placeholder="realm-slug (from WCL URL)"
+                value={slug}
+                onChange={e => setSlug(e.target.value)}
+                style={{ flex: 1 }}
               />
               <select
                 value={region}
                 onChange={e => setRegion(e.target.value)}
-                style={{ flex: 1, background: '#111', color: '#ddd', border: '1px solid #333', borderRadius: 4, padding: '.5rem', fontSize: '.9rem' }}
+                style={{
+                  background: '#111', color: '#ddd', border: '1px solid #333',
+                  borderRadius: 4, padding: '.6rem .75rem', fontSize: '.9rem',
+                }}
               >
-                {['EU','US','KR','TW'].map(r => <option key={r}>{r}</option>)}
+                {REGIONS.map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
           )}
+          {custom && (
+            <p style={{ color: '#555', fontSize: '.75rem', margin: '.35rem 0 0' }}>
+              Find your slug at: fresh.warcraftlogs.com/character/<strong style={{ color: '#888' }}>eu/thunderstrike</strong>/yourname
+            </p>
+          )}
         </div>
 
-        <div>
-          <button className="btn" type="submit" disabled={loading || !name.trim()}>
-            {loading ? 'Searching…' : 'Look up'}
-          </button>
-        </div>
+        <button
+          className="btn"
+          type="submit"
+          disabled={loading || !name.trim() || !slug.trim()}
+          style={{ alignSelf: 'flex-start', minWidth: 120 }}
+        >
+          {loading ? '↻ Looking up…' : 'Look up'}
+        </button>
       </div>
-      <p style={{ color: '#555', fontSize: '.78rem', marginTop: '.5rem' }}>
-        Server slug = the realm name as it appears in WCL URLs (e.g. <code>fresh.warcraftlogs.com/character/eu/thunderstrike/…</code>)
-      </p>
     </form>
   );
 }
 
-// ── Results ──────────────────────────────────────────────────────────────────
+// ── Loading state ─────────────────────────────────────────────────────────────
 
-function groupByZone(bosses) {
-  const zones = {};
-  for (const b of bosses) {
-    if (!zones[b.zoneId]) zones[b.zoneId] = { name: b.zoneName, bosses: [] };
-    zones[b.zoneId].bosses.push(b);
-  }
-  return Object.values(zones);
+function LoadingState({ msg }) {
+  const [dots, setDots] = useState('');
+  useEffect(() => {
+    const t = setInterval(() => setDots(d => d.length >= 3 ? '' : d + '.'), 600);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div style={{ marginTop: '2.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{
+        width: 20, height: 20, border: '2px solid #333',
+        borderTop: '2px solid #f5c842', borderRadius: '50%',
+        animation: 'spin 0.9s linear infinite', flexShrink: 0,
+      }} />
+      <div>
+        <div style={{ color: '#f5c842', fontWeight: 600, fontSize: '.95rem' }}>{msg}{dots}</div>
+        <div style={{ color: '#555', fontSize: '.78rem', marginTop: '.2rem' }}>
+          First-time lookups take 20–60 seconds while we fetch from Warcraft Logs
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function BossTable({ bosses, role }) {
+// ── Player results ────────────────────────────────────────────────────────────
+
+function StatCard({ value, label, sub, color }) {
   return (
-    <div className="table-wrap" style={{ marginTop: '.5rem' }}>
-      <table style={{ fontSize: '.8rem' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left'   }}>Boss</th>
-            <th style={{ textAlign: 'center' }}>Kills</th>
-            <th style={{ textAlign: 'center' }}>Best %</th>
-            <th style={{ textAlign: 'center' }}>Median %</th>
-            <th style={{ textAlign: 'center' }}>Best</th>
-            <th style={{ textAlign: 'center' }}>Fastest</th>
-            <th style={{ textAlign: 'center' }}>Flask</th>
-            <th style={{ textAlign: 'center' }}>Battle Elix</th>
-            <th style={{ textAlign: 'center' }}>Guard Elix</th>
-            <th style={{ textAlign: 'center' }}>Food</th>
-            <th style={{ textAlign: 'center' }}>Weapon</th>
-            <th style={{ textAlign: 'center' }}>Pot</th>
-            <th style={{ textAlign: 'center' }}>Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bosses.map(b => {
-            const noKill  = b.totalKills === 0;
-            const noCons  = b.flask === null; // null = no consumable data
-            const usedAnyPot = b.hastePot > 0 || b.destroPot > 0 || b.manaPot > 0;
-            const hasFlask = b.flask;
-            // Weapon: show oil for healers/casters, stone for tanks/melee
-            // We just show whichever is relevant; if both null, show —
-            const weaponVal = (b.weaponOil || b.weaponStone) ? true
-                            : (b.weaponOil === false || b.weaponStone === false) ? false : null;
+    <div style={{
+      background: '#0d0d0d', border: '1px solid #222', borderRadius: 6,
+      padding: '1rem 1.25rem', minWidth: 130, flex: '1 1 130px',
+    }}>
+      <div style={{ fontSize: '1.6rem', fontWeight: 700, color: color || '#ddd', lineHeight: 1.2 }}>
+        {value ?? '—'}
+      </div>
+      <div style={{ color: '#666', fontSize: '.78rem', marginTop: '.25rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+        {label}
+      </div>
+      {sub && <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.15rem' }}>{sub}</div>}
+    </div>
+  );
+}
 
-            return (
-              <tr key={b.encounterId} style={{ opacity: noKill ? 0.4 : 1 }}>
-                <td style={{ whiteSpace: 'nowrap', color: '#ddd' }}>
-                  {b.reportCode ? (
-                    <a
-                      href={`https://fresh.warcraftlogs.com/reports/${b.reportCode}`}
-                      target="_blank" rel="noreferrer"
-                      style={{ color: '#ddd', textDecoration: 'none' }}
-                      title="Open best kill in WCL"
-                    >
-                      {b.bossName}
-                    </a>
-                  ) : b.bossName}
-                </td>
-                <td style={{ textAlign: 'center', color: noKill ? '#444' : '#888' }}>
-                  {b.totalKills || '—'}
-                </td>
-                <td style={{ textAlign: 'center', fontWeight: 'bold', color: parseColor(b.rankPercent) }}>
-                  {b.rankPercent != null ? `${Math.round(b.rankPercent)}` : '—'}
-                </td>
-                <td style={{ textAlign: 'center', color: parseColor(b.medianPercent) }}>
-                  {b.medianPercent != null ? `${Math.round(b.medianPercent)}` : '—'}
-                </td>
-                <td style={{ textAlign: 'center', color: '#888' }}>
-                  {b.bestAmount != null ? fmtNum(b.bestAmount) : '—'}
-                </td>
-                <td style={{ textAlign: 'center', color: '#666' }}>{fmtMs(b.fastestKill)}</td>
+function BossRow({ b }) {
+  const noKill  = b.totalKills === 0;
+  const noCons  = b.flask === null && b.battleElixir === null;
+  const hasFlask = b.flask === true;
+  const usedPot  = b.hastePot > 0 || b.destroPot > 0 || b.manaPot > 0;
+  const weaponVal = (b.weaponOil || b.weaponStone)
+    ? true
+    : (b.weaponOil === false || b.weaponStone === false) ? false : null;
 
-                {noCons ? (
-                  /* No consumable data — player had no logged kill for this boss */
-                  <>
-                    {[...Array(6)].map((_, i) => (
-                      <td key={i} style={{ textAlign: 'center', color: '#333' }}>—</td>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <td style={{ textAlign: 'center' }}>{tick(hasFlask)}</td>
-                    <td style={{ textAlign: 'center' }}>{tick(hasFlask ? null : b.battleElixir)}</td>
-                    <td style={{ textAlign: 'center' }}>{tick(hasFlask ? null : b.guardianElixir)}</td>
-                    <td style={{ textAlign: 'center' }}>{tick(b.food)}</td>
-                    <td style={{ textAlign: 'center' }}>{tick(weaponVal)}</td>
-                    <td style={{ textAlign: 'center' }}>{tick(usedAnyPot)}</td>
-                  </>
-                )}
+  const tdCenter = { textAlign: 'center', verticalAlign: 'middle' };
 
-                <td style={{ textAlign: 'center', fontWeight: 'bold',
-                  color: b.consumeScore != null ? scoreColor(b.consumeScore, b.consumeMax) : '#333' }}>
-                  {b.consumeScore != null ? `${b.consumeScore}/${b.consumeMax}` : '—'}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+  return (
+    <tr style={{ opacity: noKill ? 0.35 : 1 }}>
+      <td style={{ whiteSpace: 'nowrap', fontWeight: 500 }}>
+        {b.reportCode && !noKill ? (
+          <a href={`https://fresh.warcraftlogs.com/reports/${b.reportCode}`}
+            target="_blank" rel="noreferrer"
+            style={{ color: '#ddd', textDecoration: 'none' }}
+            title="Open best kill in WCL">
+            {b.bossName} <span style={{ color: '#444', fontSize: '.75rem' }}>↗</span>
+          </a>
+        ) : <span style={{ color: noKill ? '#555' : '#ddd' }}>{b.bossName}</span>}
+      </td>
+
+      <td style={{ ...tdCenter, color: noKill ? '#333' : '#888' }}>{b.totalKills || '—'}</td>
+      <td style={{ ...tdCenter, fontWeight: 700, color: parseColor(b.rankPercent) }}>
+        {b.rankPercent != null ? Math.round(b.rankPercent) : '—'}
+      </td>
+      <td style={{ ...tdCenter, color: parseColor(b.medianPercent) }}>
+        {b.medianPercent != null ? Math.round(b.medianPercent) : '—'}
+      </td>
+      <td style={{ ...tdCenter, color: '#888' }}>
+        {b.bestAmount != null ? Number(b.bestAmount).toFixed(1) : '—'}
+      </td>
+      <td style={{ ...tdCenter, color: '#555', fontSize: '.82rem' }}>{fmtMs(b.fastestKill)}</td>
+
+      {noCons ? (
+        [0,1,2,3,4,5].map(i => (
+          <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem' }}>—</td>
+        ))
+      ) : (
+        <>
+          <td style={tdCenter}><ConsumeTick val={b.flask} /></td>
+          <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.battleElixir} /></td>
+          <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.guardianElixir} /></td>
+          <td style={tdCenter}><ConsumeTick val={b.food} /></td>
+          <td style={tdCenter}><ConsumeTick val={weaponVal} /></td>
+          <td style={tdCenter}><ConsumeTick val={usedPot} /></td>
+        </>
+      )}
+
+      <td style={{
+        ...tdCenter, fontWeight: 700, fontSize: '.85rem',
+        color: b.consumeScore != null ? scoreColor(b.consumeScore, b.consumeMax) : '#333',
+      }}>
+        {b.consumeScore != null ? `${b.consumeScore}/${b.consumeMax}` : '—'}
+      </td>
+    </tr>
+  );
+}
+
+function ZoneSection({ zone }) {
+  const th = (label, center) => (
+    <th key={label} style={{ textAlign: center ? 'center' : 'left', whiteSpace: 'nowrap', fontSize: '.75rem', color: '#555', textTransform: 'uppercase', letterSpacing: '.04em', padding: '.5rem .6rem' }}>
+      {label}
+    </th>
+  );
+  return (
+    <div style={{ marginTop: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '.75rem', marginBottom: '.5rem' }}>
+        <h3 style={{ color: '#f5c842', fontSize: '1rem', margin: 0 }}>{zone.name}</h3>
+        <span style={{ color: '#333', fontSize: '.78rem' }}>{zone.bosses.length} bosses</span>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', fontSize: '.82rem', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #1a1a1a' }}>
+              {th('Boss')}
+              {th('Kills',    true)}
+              {th('Best %',   true)}
+              {th('Median %', true)}
+              {th('Best',     true)}
+              {th('Fastest',  true)}
+              {th('Flask',    true)}
+              {th('B. Elix',  true)}
+              {th('G. Elix',  true)}
+              {th('Food',     true)}
+              {th('Weapon',   true)}
+              {th('Pot',      true)}
+              {th('Score',    true)}
+            </tr>
+          </thead>
+          <tbody>
+            {zone.bosses.map(b => <BossRow key={b.encounterId} b={b} />)}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
   const zones = groupByZone(bosses);
+  const withKills = bosses.filter(b => b.totalKills > 0);
+  const withCons  = bosses.filter(b => b.consumeScore != null);
 
-  // Overall consume score across all bosses that have data
-  const scoredBosses = bosses.filter(b => b.consumeScore != null);
-  const avgScore = scoredBosses.length
-    ? (scoredBosses.reduce((s, b) => s + b.consumeScore, 0) / scoredBosses.length).toFixed(1)
+  const avgPct   = withKills.length
+    ? Math.round(withKills.reduce((s, b) => s + (b.rankPercent ?? 0), 0) / withKills.length)
     : null;
-  const avgMax = scoredBosses.length
-    ? (scoredBosses.reduce((s, b) => s + b.consumeMax, 0) / scoredBosses.length).toFixed(1)
+  const avgScore = withCons.length
+    ? (withCons.reduce((s, b) => s + b.consumeScore, 0) / withCons.length).toFixed(1)
+    : null;
+  const avgMax   = withCons.length
+    ? (withCons.reduce((s, b) => s + b.consumeMax,   0) / withCons.length).toFixed(1)
+    : null;
+  const fullRate = withCons.length
+    ? Math.round((withCons.filter(b => b.consumeScore === b.consumeMax).length / withCons.length) * 100)
     : null;
 
-  const bossesWithKills = bosses.filter(b => b.totalKills > 0);
-  const avgPct = bossesWithKills.length
-    ? Math.round(bossesWithKills.reduce((s, b) => s + (b.rankPercent ?? 0), 0) / bossesWithKills.length)
-    : null;
-
-  const fetchedAgo = profile.fetchedAt
+  const fetchedAgoMin = profile.fetchedAt
     ? Math.round((Date.now() - new Date(profile.fetchedAt).getTime()) / 60000)
     : null;
 
   return (
-    <div style={{ marginTop: '2rem' }}>
-      {/* Player header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+    <div style={{ marginTop: '2.5rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ color: classColor(profile.className), margin: 0, fontSize: '2rem' }}>
+          <h2 style={{ color: classColor(profile.className), margin: 0, fontSize: '1.8rem', letterSpacing: '-.01em' }}>
             {profile.name}
-          </h1>
-          <p style={{ color: '#888', margin: '.25rem 0 0', fontSize: '.9rem' }}>
-            {profile.className}
-            {profile.role && <> · <span style={{ textTransform: 'capitalize' }}>{profile.role}</span></>}
-            {profile.guildName && <> · <span style={{ color: '#f5c842' }}>&lt;{profile.guildName}&gt;</span></>}
-            {' '}· {profile.server} ({profile.region})
-          </p>
-          <p style={{ color: '#444', fontSize: '.75rem', margin: '.4rem 0 0' }}>
-            Based on best logged kill per boss &nbsp;·&nbsp;
-            {fetchedAgo != null && (fetchedAgo < 60
-              ? `Updated ${fetchedAgo}m ago`
-              : `Updated ${Math.round(fetchedAgo / 60)}h ago`)}
-          </p>
+          </h2>
+          <div style={{ marginTop: '.35rem', color: '#888', fontSize: '.88rem' }}>
+            {[
+              profile.className,
+              profile.role && profile.role.charAt(0).toUpperCase() + profile.role.slice(1),
+              profile.guildName && `‹${profile.guildName}›`,
+              `${profile.server} (${profile.region})`,
+            ].filter(Boolean).join('  ·  ')}
+          </div>
+          {fetchedAgoMin != null && (
+            <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.3rem' }}>
+              Based on best logged kill per boss &nbsp;·&nbsp;
+              Updated {fetchedAgoMin < 60 ? `${fetchedAgoMin}m` : `${Math.round(fetchedAgoMin / 60)}h`} ago
+            </div>
+          )}
         </div>
         <button
           className="btn btn-sm"
           onClick={onRefresh}
           disabled={refreshing}
-          style={{ alignSelf: 'flex-start', marginTop: '.25rem' }}
         >
-          {refreshing ? '↻ Refreshing…' : '↻ Refresh'}
+          {refreshing ? '↻ Refreshing…' : '↻ Refresh data'}
         </button>
       </div>
 
-      {/* Summary cards */}
-      <div className="admin-stats-row" style={{ marginTop: '1.5rem' }}>
-        <div className="admin-stat-card">
-          <div className="admin-stat-number" style={{ color: avgScore != null ? scoreColor(avgScore, avgMax) : '#555' }}>
-            {avgScore != null ? `${avgScore}/${avgMax}` : '—'}
-          </div>
-          <div className="admin-stat-label">Avg Consume Score</div>
-          <div style={{ color: '#555', fontSize: '.75rem' }}>{scoredBosses.length} bosses checked</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-number" style={{ color: parseColor(avgPct) }}>
-            {avgPct != null ? `${avgPct}%` : '—'}
-          </div>
-          <div className="admin-stat-label">Avg WCL Rank %</div>
-          <div style={{ color: '#555', fontSize: '.75rem' }}>{bossesWithKills.length} bosses with kills</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-number">{bossesWithKills.length}</div>
-          <div className="admin-stat-label">Boss Kills Tracked</div>
-        </div>
-        <div className="admin-stat-card">
-          <div className="admin-stat-number" style={{ color: '#888' }}>
-            {scoredBosses.length > 0
-              ? `${Math.round((scoredBosses.filter(b => b.consumeScore === b.consumeMax).length / scoredBosses.length) * 100)}%`
-              : '—'}
-          </div>
-          <div className="admin-stat-label">Full Score Rate</div>
-          <div style={{ color: '#555', fontSize: '.75rem' }}>kills with perfect consumes</div>
-        </div>
+      {/* Stat cards */}
+      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+        <StatCard
+          value={avgScore != null ? `${avgScore}/${avgMax}` : '—'}
+          label="Avg consume score"
+          sub={`${withCons.length} bosses checked`}
+          color={avgScore != null ? scoreColor(Number(avgScore), Number(avgMax)) : '#555'}
+        />
+        <StatCard
+          value={avgPct != null ? `${avgPct}%` : '—'}
+          label="Avg WCL rank"
+          sub={`${withKills.length} bosses with kills`}
+          color={parseColor(avgPct)}
+        />
+        <StatCard value={withKills.length} label="Boss kills tracked" />
+        <StatCard
+          value={fullRate != null ? `${fullRate}%` : '—'}
+          label="Full score rate"
+          sub="perfect consumes"
+          color={fullRate >= 80 ? '#4caf50' : fullRate >= 50 ? '#f5c842' : '#e05555'}
+        />
       </div>
 
       {/* Per-zone boss tables */}
-      {zones.map(zone => (
-        <div key={zone.name} style={{ marginTop: '2rem' }}>
-          <h3 style={{ color: '#f5c842', fontSize: '1rem', marginBottom: 0 }}>{zone.name}</h3>
-          <BossTable bosses={zone.bosses} role={profile.role} />
-        </div>
-      ))}
+      {zones.map(z => <ZoneSection key={z.name} zone={z} />)}
 
-      <p style={{ color: '#444', fontSize: '.75rem', marginTop: '2rem' }}>
-        Percentile colours: &nbsp;
-        {[['≥99', '#e6cc80'], ['≥95', '#ff8000'], ['≥75', '#a335ee'], ['≥50', '#0070dd'], ['≥25', '#1eff00'], ['<25', '#888']].map(([l, c]) => (
-          <span key={l} style={{ color: c, marginRight: '.75rem' }}>{l}</span>
-        ))}
-        &nbsp;·&nbsp; Consumable data from best logged kill per boss.
-      </p>
+      {/* Legend */}
+      <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid #161616', display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '.73rem', color: '#444' }}>
+        <span>Rank %:&nbsp;
+          {[['≥99','#e6cc80'],['≥95','#ff8000'],['≥75','#a335ee'],['≥50','#0070dd'],['≥25','#1eff00'],['&lt;25','#888']].map(([l,c]) => (
+            <span key={l} style={{ color: c, marginRight: '.5rem' }} dangerouslySetInnerHTML={{ __html: l }} />
+          ))}
+        </span>
+        <span>Consumes based on best logged kill per boss &nbsp;·&nbsp; <span style={{ color: '#333' }}>—</span> = no kill recorded</span>
+      </div>
     </div>
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// ── Page shell ────────────────────────────────────────────────────────────────
 
 export default function LookupPage() {
   const router = useRouter();
 
-  const [state,      setState]      = useState('idle');  // idle | loading | done | error
+  const [phase,      setPhase]      = useState('idle');   // idle | loading | done | error
   const [profile,    setProfile]    = useState(null);
   const [bosses,     setBosses]     = useState([]);
   const [errorMsg,   setErrorMsg]   = useState('');
-  const [refreshing, setRefreshing] = useState(false);
   const [statusMsg,  setStatusMsg]  = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const doFetch = useCallback(async ({ name, server, region }) => {
-    setState('loading');
+  const { name: qName, server: qServer, region: qRegion } = router.query;
+
+  const doLookup = useCallback(async ({ name, server, region }) => {
+    setPhase('loading');
     setErrorMsg('');
     setStatusMsg('Checking cache…');
 
-    // 1. Check cache first
-    const cached = await fetch(`/api/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`).then(r => r.json());
+    try {
+      // 1. Check cache
+      const cached = await fetch(
+        `/api/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
+      ).then(r => r.json());
 
-    if (cached.status === 'done') {
-      setProfile(cached.profile);
-      setBosses(cached.bosses);
-      setState('done');
-      return;
-    }
+      if (cached.status === 'done') {
+        setProfile(cached.profile);
+        setBosses(cached.bosses);
+        setPhase('done');
+        return;
+      }
 
-    // 2. Need to fetch from WCL
-    setStatusMsg('Fetching from Warcraft Logs… this takes 20–60 seconds for a new profile.');
-    const fetchRes = await fetch('/api/lookup/fetch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, serverSlug: server, serverRegion: region }),
-    });
+      // 2. Trigger WCL fetch
+      setStatusMsg('Fetching from Warcraft Logs…');
+      const fetchRes = await fetch('/api/lookup/fetch', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name, serverSlug: server, serverRegion: region }),
+      });
+      const fetchBody = await fetchRes.json().catch(() => ({}));
 
-    if (!fetchRes.ok) {
-      const err = await fetchRes.json().catch(() => ({}));
-      setErrorMsg(err.error || `Server error ${fetchRes.status}`);
-      setState('error');
-      return;
-    }
+      if (!fetchRes.ok) {
+        setErrorMsg(fetchBody.error || `Server error (${fetchRes.status})`);
+        setPhase('error');
+        return;
+      }
 
-    // 3. Now load from cache
-    setStatusMsg('Loading results…');
-    const fresh = await fetch(`/api/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`).then(r => r.json());
+      // 3. Load fresh data
+      setStatusMsg('Loading results…');
+      const fresh = await fetch(
+        `/api/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
+      ).then(r => r.json());
 
-    if (fresh.status === 'done') {
-      setProfile(fresh.profile);
-      setBosses(fresh.bosses);
-      setState('done');
-    } else {
-      setErrorMsg(fresh.error || 'Fetch completed but data not found. Please try again.');
-      setState('error');
+      if (fresh.status === 'done') {
+        setProfile(fresh.profile);
+        setBosses(fresh.bosses);
+        setPhase('done');
+      } else {
+        setErrorMsg(fresh.error || 'Data fetched but could not be loaded. Try again.');
+        setPhase('error');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Unexpected error');
+      setPhase('error');
     }
   }, []);
 
-  // Auto-search if query params are present on load
+  // Auto-search from URL params
   useEffect(() => {
-    const { name, server, region } = router.query;
-    if (name && server && region && state === 'idle') {
-      doFetch({ name, server, region });
+    if (qName && qServer && qRegion && phase === 'idle') {
+      doLookup({ name: qName, server: qServer, region: qRegion });
     }
-  }, [router.query, state, doFetch]);
+  }, [qName, qServer, qRegion, phase, doLookup]);
 
   const handleSearch = ({ name, server, region }) => {
-    router.push(`/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`, undefined, { shallow: true });
-    doFetch({ name, server, region });
+    router.push(
+      `/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`,
+      undefined, { shallow: true }
+    );
+    doLookup({ name, server, region });
   };
 
   const handleRefresh = async () => {
     if (!profile || refreshing) return;
     setRefreshing(true);
-    setStatusMsg('Re-fetching from Warcraft Logs…');
     try {
       await fetch('/api/lookup/fetch', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profile.name, serverSlug: profile.server, serverRegion: profile.region }),
+        body:    JSON.stringify({ name: profile.name, serverSlug: profile.server, serverRegion: profile.region }),
       });
-      const fresh = await fetch(`/api/lookup?name=${encodeURIComponent(profile.name)}&server=${encodeURIComponent(profile.server)}&region=${encodeURIComponent(profile.region)}`).then(r => r.json());
+      const fresh = await fetch(
+        `/api/lookup?name=${encodeURIComponent(profile.name)}&server=${encodeURIComponent(profile.server)}&region=${encodeURIComponent(profile.region)}`
+      ).then(r => r.json());
       if (fresh.status === 'done') {
         setProfile(fresh.profile);
         setBosses(fresh.bosses);
@@ -431,29 +496,42 @@ export default function LookupPage() {
     <>
       <Head><title>Player Lookup — Snitchbot</title></Head>
       <div className="container">
-        <div style={{ marginBottom: '1rem' }}>
+
+        {/* Nav */}
+        <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Link href="/" className="subtle-link">← Back</Link>
         </div>
 
-        <h1>Player Lookup</h1>
-        <p style={{ color: '#888', marginTop: '.25rem' }}>
-          Search any player on Warcraft Logs — see their TBC raid rankings and consumable usage across every boss.
-          First lookup takes 20–60 seconds. Subsequent lookups are instant (24h cache).
+        {/* Header */}
+        <h1 style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-.02em', margin: 0 }}>
+          Player Lookup
+        </h1>
+        <p style={{ color: '#666', marginTop: '.4rem', fontSize: '.9rem', maxWidth: 560 }}>
+          See any player's WCL rankings and consumable usage across every TBC boss.
+          First lookup: 20–60 s. After that, instant.
         </p>
 
-        <SearchForm onSearch={handleSearch} loading={state === 'loading' || refreshing} />
+        <SearchForm
+          initialName={qName}
+          initialServer={qServer}
+          initialRegion={qRegion}
+          onSearch={handleSearch}
+          loading={phase === 'loading' || refreshing}
+        />
 
-        {state === 'loading' && (
-          <div style={{ marginTop: '2rem', color: '#f5c842', fontSize: '.9rem' }}>
-            <span style={{ marginRight: '.5rem' }}>⟳</span>{statusMsg}
+        {phase === 'loading' && <LoadingState msg={statusMsg} />}
+
+        {phase === 'error' && (
+          <div style={{
+            marginTop: '1.5rem', padding: '.85rem 1rem',
+            background: 'rgba(224,85,85,.1)', border: '1px solid rgba(224,85,85,.3)',
+            borderRadius: 6, color: '#e05555', fontSize: '.9rem',
+          }}>
+            {errorMsg}
           </div>
         )}
 
-        {state === 'error' && (
-          <div className="error" style={{ marginTop: '1.5rem' }}>{errorMsg}</div>
-        )}
-
-        {state === 'done' && profile && (
+        {phase === 'done' && profile && (
           <PlayerProfile
             profile={profile}
             bosses={bosses}
@@ -462,11 +540,15 @@ export default function LookupPage() {
           />
         )}
 
-        <footer className="site-footer" style={{ marginTop: '3rem' }}>
+        <footer className="site-footer" style={{ marginTop: '4rem' }}>
           Built by <strong>Vitok</strong> · Thunderstrike EU &nbsp;·&nbsp;
           Powered by <a href="https://www.warcraftlogs.com" target="_blank" rel="noreferrer" className="subtle-link">Warcraft Logs</a> API
         </footer>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </>
   );
 }
