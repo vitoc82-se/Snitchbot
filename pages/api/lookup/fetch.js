@@ -5,7 +5,7 @@
  * Subsequent lookups for the same player are served instantly from the cache.
  */
 import sql from '../../../lib/db';
-import { wclQuery } from '../../../lib/wcl';
+import { wclFreshQuery } from '../../../lib/wcl';
 import {
   PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS,
@@ -146,7 +146,7 @@ export default async function handler(req, res) {
     // ── 1. Discover TBC raid zones from WCL worldData ─────────────────────
     // Try multiple strategies: plain zones list, then expansion-scoped lists.
     // WCL Classic content sometimes lives under a different expansion ID.
-    const zonesData = await wclQuery(`{
+    const zonesData = await wclFreshQuery(`{
       worldData {
         allZones: zones { id name encounters { id name } }
         exp2:  expansion(id:  2) { zones { id name encounters { id name } } }
@@ -171,7 +171,7 @@ export default async function handler(req, res) {
 
     // ── 2. Character info + zone rankings in one batched query ────────────
     const zoneAliases = tbcZones.map(z => `z${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');
-    const charResult  = await wclQuery(`
+    const charResult  = await wclFreshQuery(`
       query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
           character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
@@ -237,7 +237,7 @@ export default async function handler(req, res) {
         .map(id => `e${id}: encounterRankings(encounterID: ${id}, limit: 1)`)
         .join('\n');
 
-      const encResult = await wclQuery(`
+      const encResult = await wclFreshQuery(`
         query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
           characterData {
             character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
@@ -287,7 +287,7 @@ export default async function handler(req, res) {
           ];
         }).join('\n');
 
-        const repResult = await wclQuery(`
+        const repResult = await wclFreshQuery(`
           query ($code: String!) {
             reportData { report(code: $code) {
               masterData { actors(type: "Player") { id name } }
