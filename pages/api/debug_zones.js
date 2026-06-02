@@ -1,37 +1,61 @@
+/**
+ * GET /api/debug_zones
+ * Introspects the WCL GraphQL schema to find exact character query parameters,
+ * then tests character lookup with different parameter combinations.
+ */
 import { wclQuery } from '../../lib/wcl';
 
 export default async function handler(req, res) {
   const { name = 'Vitoduud', server = 'thunderstrike', region = 'EU' } = req.query;
 
-  // Test 1: minimal character lookup — no guild field that might vary by schema
-  const charMinimal = await wclQuery(`
-    query($name: String!, $serverSlug: String!, $serverRegion: String!) {
-      characterData {
-        character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-          id classID name
+  // 1. Introspect the character field to see all accepted arguments
+  const introspect = await wclQuery(`{
+    __type(name: "CharacterData") {
+      fields {
+        name
+        args {
+          name
+          type { name kind ofType { name kind } }
         }
       }
     }
-  `, { name, serverSlug: server, serverRegion: region }).catch(e => ({ _err: e.message }));
+  }`).catch(e => ({ _err: e.message }));
 
-  // Test 2: zone rankings without knowing zone IDs — try zoneRankings with no args
-  const charRankings = await wclQuery(`
-    query($name: String!, $serverSlug: String!, $serverRegion: String!) {
+  // 2. Try character lookup with various combos — maybe gameVersion is needed
+  const tests = {};
+
+  // Basic lookup
+  tests.basic = await wclQuery(`
+    query($name:String!,$slug:String!,$region:String!) {
       characterData {
-        character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-          id
-          z1: zoneRankings(zoneID: 1)
-          z2: zoneRankings(zoneID: 2)
-          z3: zoneRankings(zoneID: 3)
-          z4: zoneRankings(zoneID: 4)
-          z5: zoneRankings(zoneID: 5)
-        }
+        character(name:$name, serverSlug:$slug, serverRegion:$region) { id classID name }
       }
-    }
-  `, { name, serverSlug: server, serverRegion: region }).catch(e => ({ _err: e.message }));
+    }`, { name, slug: server, region }).catch(e => e.message);
+
+  // Lowercase name
+  tests.lowercase = await wclQuery(`
+    query($name:String!,$slug:String!,$region:String!) {
+      characterData {
+        character(name:$name, serverSlug:$slug, serverRegion:$region) { id classID name }
+      }
+    }`, { name: name.toLowerCase(), slug: server, region }).catch(e => e.message);
+
+  // Different region format
+  tests.regionLower = await wclQuery(`
+    query($name:String!,$slug:String!,$region:String!) {
+      characterData {
+        character(name:$name, serverSlug:$slug, serverRegion:$region) { id classID name }
+      }
+    }`, { name, slug: server, region: region.toLowerCase() }).catch(e => e.message);
+
+  // 3. Also check what GameVersion enum values exist
+  const gameVersionType = await wclQuery(`{
+    __type(name: "GameVersion") { enumValues { name } }
+  }`).catch(e => ({ _err: e.message }));
 
   return res.json({
-    charMinimal: charMinimal?.characterData?.character ?? charMinimal,
-    charRankings: charRankings?.characterData?.character ?? charRankings,
+    characterDataFields: introspect?.__type?.fields?.find(f => f.name === 'character')?.args || introspect,
+    gameVersionValues: gameVersionType?.__type?.enumValues || gameVersionType,
+    tests,
   });
 }
