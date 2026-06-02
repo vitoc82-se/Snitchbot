@@ -4,6 +4,64 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { classColor } from '../../lib/scoring';
 
+// ── Combined rating ──────────────────────────────────────────────────────────
+// 60% avg WCL rank % + 40% consumable compliance rate → WoW quality tier
+
+function calcCombinedRating(bosses) {
+  const withRank = bosses.filter(b => b.totalKills > 0 && b.rankPercent != null);
+  const withCons = bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
+  if (!withRank.length && !withCons.length) return null;
+
+  const avgRank    = withRank.length
+    ? withRank.reduce((s, b) => s + b.rankPercent, 0) / withRank.length : 0;
+  const consPct    = withCons.length
+    ? withCons.reduce((s, b) => s + (b.consumeScore / b.consumeMax) * 100, 0) / withCons.length : 0;
+
+  let combined;
+  if (withRank.length && withCons.length) combined = avgRank * 0.6 + consPct * 0.4;
+  else if (withRank.length)               combined = avgRank;
+  else                                    combined = consPct;
+
+  return { combined: Math.round(combined), avgRank: Math.round(avgRank), consPct: Math.round(consPct) };
+}
+
+function getTier(score) {
+  if (score >= 95) return { name: 'Legendary', color: '#e6cc80', border: 'rgba(230,204,128,0.5)', bg: 'rgba(230,204,128,0.07)' };
+  if (score >= 75) return { name: 'Epic',      color: '#a335ee', border: 'rgba(163,53,238,0.5)',  bg: 'rgba(163,53,238,0.07)'  };
+  if (score >= 50) return { name: 'Rare',      color: '#0070dd', border: 'rgba(0,112,221,0.5)',   bg: 'rgba(0,112,221,0.07)'   };
+  if (score >= 25) return { name: 'Uncommon',  color: '#1eff00', border: 'rgba(30,255,0,0.5)',    bg: 'rgba(30,255,0,0.07)'    };
+  return                  { name: 'Common',    color: '#9d9d9d', border: 'rgba(157,157,157,0.3)', bg: 'rgba(157,157,157,0.05)' };
+}
+
+function RatingBadge({ bosses }) {
+  const rating = calcCombinedRating(bosses);
+  if (!rating) return null;
+  const tier = getTier(rating.combined);
+  return (
+    <div style={{
+      border: `1px solid ${tier.border}`,
+      background: tier.bg,
+      borderRadius: 8,
+      padding: '.9rem 1.4rem',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '.2rem',
+      minWidth: 120,
+    }}>
+      <div style={{ color: tier.color, fontSize: '1.4rem', fontWeight: 800, letterSpacing: '.04em', textShadow: `0 0 20px ${tier.color}55` }}>
+        {tier.name}
+      </div>
+      <div style={{ color: '#555', fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.07em' }}>
+        Combined Rating
+      </div>
+      <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.15rem', textAlign: 'center' }}>
+        WCL {rating.avgRank}% &nbsp;·&nbsp; Consumes {rating.consPct}%
+      </div>
+    </div>
+  );
+}
+
 // WCL parse tier colours
 function parseColor(pct) {
   if (pct == null || pct === 0) return '#555';
@@ -351,7 +409,8 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginTop: '1.5rem', alignItems: 'stretch' }}>
+        <RatingBadge bosses={bosses} />
         <StatCard
           value={avgScore != null ? `${avgScore}/${avgMax}` : '—'}
           label="Avg consume score"
