@@ -184,10 +184,15 @@ export default async function handler(req, res) {
     `;
     const playerId = profile.id;
 
-    // ── 1. Character info + zone rankings for all TBC zones (one query) ─────
-    // zoneRankings returns all encounter data (%, kills, DPS) AND encounter IDs.
-    // We use those encounter IDs for encounterRankings to get report codes.
-    const zrAliases = TBC_RANKING_ZONES.map(z => `zr${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');
+    // ── 1. Character info + zone rankings (both DPS and HPS metrics) ─────────
+    // Query both metrics simultaneously. Per encounter, we pick whichever has a
+    // non-zero bestAmount — this correctly handles healers, DPS, and hybrids that
+    // swap roles between bosses (e.g. a Druid healing most kills but DPS on one boss).
+    const zrAliases = TBC_RANKING_ZONES.flatMap(z => [
+      `zr${z.id}dps: zoneRankings(zoneID: ${z.id}, metric: dps)`,
+      `zr${z.id}hps: zoneRankings(zoneID: ${z.id}, metric: hps)`,
+    ]).join('\n');
+
     const charResult = await wclFreshQuery(`
       query($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
@@ -206,35 +211,72 @@ export default async function handler(req, res) {
     const className = CLASS_NAMES[char.classID] || 'Unknown';
     const guildName = char.guilds?.[0]?.name || null;
 
-    // Parse zone rankings — build flat encounter list with all ranking data
-    // rankingMap key = ranking encounter ID (e.g. 100623 for Hydross)
-    const rankingMap = {}; // rankEncId → boss data
-    const allEncounters = []; // all encounters across all zones (including 0-kill ones)
-    let bestSpec = null;
+    // Merge DPS and HPS rankings per encounter.
+    // For each encounter, pick the metric with a non-zero bestAmount (real performance).
+    // Falls back to DPS if both are zero or only one metric has data.
+    const mergedByEncId = {}; // encId → best ranking entry
 
     for (const zone of TBC_RANKING_ZONES) {
-      const zr = char[`zr${zone.id}`];
-      const rankings = zr?.rankings || [];
-      for (const r of rankings) {
+      const dpsRankings = char[`zr${zone.id}dps`]?.rankings || [];
+      const hpsRankings = char[`zr${zone.id}hps`]?.rankings || [];
+
+      // Index HPS data by encounter ID for O(1) lookup
+      const hpsById = {};
+      for (const r of hpsRankings) {
+        if (r.encounter?.id) hpsById[r.encounter.id] = r;
+      }
+
+      for (const r of dpsRankings) {
         const encId = r.encounter?.id;
         if (!encId) continue;
-        const entry = {
-          encId,          // ranking encounter ID (used for encounterRankings calls)
-          bossName:      r.encounter.name,
+        const hps  = hpsById[encId];
+
+        // Pick the entry whose bestAmount is higher (actual role this boss was done in).
+        // A healer doing DPS parse will show bestAmount ≈ 0; HPS entry will be non-zero.
+        const useDps = !hps || (r.bestAmount ?? 0) >= (hps.bestAmount ?? 0);
+        const best   = useDps ? r : hps;
+
+        mergedByEncId[encId] = {
+          encId,
+          bossName:      best.encounter.name,
           zoneId:        zone.id,
           zoneName:      zone.name,
-          rankPercent:   r.rankPercent   ?? null,
-          medianPercent: r.medianPercent ?? null,
-          bestAmount:    r.bestAmount    ?? null,
-          totalKills:    r.totalKills    ?? 0,
-          fastestKill:   r.fastestKill   ?? null,
-          bestSpec:      r.bestSpec      ?? null,
+          rankPercent:   best.rankPercent   ?? null,
+          medianPercent: best.medianPercent ?? null,
+          bestAmount:    best.bestAmount    ?? null,
+          totalKills:    best.totalKills    ?? 0,
+          fastestKill:   best.fastestKill   ?? null,
+          bestSpec:      best.bestSpec      ?? null,
         };
-        allEncounters.push(entry);
-        if ((r.totalKills ?? 0) > 0) {
-          rankingMap[encId] = entry;
-          if (r.bestSpec && !bestSpec) bestSpec = r.bestSpec;
+
+        // Also handle encounters only in HPS (e.g. purely healing encounter)
+        for (const [hEncId, hR] of Object.entries(hpsById)) {
+          if (!mergedByEncId[hEncId]) {
+            mergedByEncId[hEncId] = {
+              encId:         Number(hEncId),
+              bossName:      hR.encounter.name,
+              zoneId:        zone.id,
+              zoneName:      zone.name,
+              rankPercent:   hR.rankPercent   ?? null,
+              medianPercent: hR.medianPercent ?? null,
+              bestAmount:    hR.bestAmount    ?? null,
+              totalKills:    hR.totalKills    ?? 0,
+              fastestKill:   hR.fastestKill   ?? null,
+              bestSpec:      hR.bestSpec      ?? null,
+            };
+          }
         }
+      }
+    }
+
+    const rankingMap   = {}; // encId → entry (only bosses with kills)
+    const allEncounters = Object.values(mergedByEncId);
+    let bestSpec = null;
+
+    for (const entry of allEncounters) {
+      if ((entry.totalKills ?? 0) > 0) {
+        rankingMap[entry.encId] = entry;
+        if (entry.bestSpec && !bestSpec) bestSpec = entry.bestSpec;
       }
     }
 
