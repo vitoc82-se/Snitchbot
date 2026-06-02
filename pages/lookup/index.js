@@ -30,12 +30,12 @@ function calcCombinedRating(bosses) {
   const enchantPct = withEnchant.length
     ? withEnchant.reduce((s, b) => s + b.enchantScore, 0) / withEnchant.length : null;
 
-  // 50% WCL performance + 25% consumables + 25% enchants
+  // WCL 50% · Enchants 30% · Consumes 20% (importance order per user)
   let combined = 0, totalWeight = 0;
   if (avgRank    != null) { combined += avgRank    * 0.50; totalWeight += 0.50; }
-  if (consPct    != null) { combined += consPct    * 0.25; totalWeight += 0.25; }
-  if (enchantPct != null) { combined += enchantPct * 0.25; totalWeight += 0.25; }
-  if (totalWeight > 0) combined = combined / totalWeight * 1; // normalise if some components missing
+  if (enchantPct != null) { combined += enchantPct * 0.30; totalWeight += 0.30; }
+  if (consPct    != null) { combined += consPct    * 0.20; totalWeight += 0.20; }
+  if (totalWeight > 0) combined = (combined / totalWeight); // normalise if some components missing
 
   return {
     combined:    Math.round(combined),
@@ -335,32 +335,6 @@ function BossRow({ b }) {
         {b.consumeScore != null ? `${b.consumeScore}/${b.consumeMax}` : '—'}
       </td>
 
-      {/* Enchant cells — new importance order: Wpn Head Shldr Legs Glv Brce Chst */}
-      {b.enchantScore == null ? (
-        [0,1,2,3,4,5,6].map(i => (
-          <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem',
-            borderLeft: i === 0 ? '1px solid #111' : undefined }}>—</td>
-        ))
-      ) : (
-        <>
-          {[
-            { val: b.enchantMainhand, label: 'Wpn' },
-            { val: b.enchantHead,     label: 'Head' },
-            { val: b.enchantShoulder, label: 'Shldr' },
-            { val: b.enchantLegs,     label: 'Legs' },
-            { val: b.enchantGloves,   label: 'Glv' },
-            { val: b.enchantBracer,   label: 'Brce' },
-            { val: b.enchantChest,    label: 'Chst' },
-          ].map(({ val, label }, i) => (
-            <td key={label} style={{
-              ...tdCenter,
-              borderLeft: i === 0 ? '1px solid #111' : undefined,
-            }}>
-              <ConsumeTick val={val} />
-            </td>
-          ))}
-        </>
-      )}
     </tr>
   );
 }
@@ -468,18 +442,6 @@ function ZoneSection({ zone, defaultOpen = false }) {
                 {th('Weapon',   true)}
                 {th('Pot',      true)}
                 {th('Score',    true)}
-                <th colSpan={7} style={{ textAlign: 'center', fontSize: '.7rem', color: '#a335ee', textTransform: 'uppercase', letterSpacing: '.06em', padding: '.5rem .4rem', borderLeft: '1px solid #1a1a1a' }}>
-                  ── Enchants ──
-                </th>
-              </tr>
-              <tr style={{ background: '#060606', borderBottom: '1px solid #111' }}>
-                {['','','','','','','','','','','','','',
-                  'Wpn','Head','Shldr','Legs','Glv','Brce','Chst'
-                ].map((l, i) => (
-                  <th key={i} style={{ textAlign: 'center', fontSize: '.68rem', color: i >= 13 ? '#7a4aaa' : 'transparent', padding: '.25rem .4rem', letterSpacing: '.03em' }}>
-                    {l}
-                  </th>
-                ))}
               </tr>
             </thead>
             <tbody>
@@ -547,28 +509,44 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginTop: '1.5rem', alignItems: 'stretch' }}>
-        <RatingBadge bosses={bosses} />
-        <StatCard
-          value={avgScore != null ? `${avgScore}/${avgMax}` : '—'}
-          label="Avg consume score"
-          sub={`${withCons.length} bosses checked`}
-          color={avgScore != null ? scoreColor(Number(avgScore), Number(avgMax)) : '#555'}
-        />
-        <StatCard
-          value={avgPct != null ? `${avgPct}%` : '—'}
-          label="Avg WCL rank"
-          sub={`${withKills.length} bosses with kills`}
-          color={parseColor(avgPct)}
-        />
-        <StatCard value={withKills.length} label="Boss kills tracked" />
-        <StatCard
-          value={fullRate != null ? `${fullRate}%` : '—'}
-          label="Full score rate"
-          sub="perfect consumes"
-          color={fullRate >= 80 ? '#4caf50' : fullRate >= 50 ? '#f5c842' : '#e05555'}
-        />
-      </div>
+      {(() => {
+        const rating      = calcCombinedRating(bosses);
+        const withEnchant = bosses.filter(b => b.enchantScore != null);
+        const avgEnchant  = withEnchant.length
+          ? Math.round(withEnchant.reduce((s, b) => s + b.enchantScore, 0) / withEnchant.length)
+          : null;
+        const overallPct  = rating?.combined ?? null;
+        const tier        = overallPct != null ? getTier(overallPct) : null;
+        return (
+          <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', marginTop: '1.5rem', alignItems: 'stretch' }}>
+            <RatingBadge bosses={bosses} />
+            <StatCard
+              value={avgPct != null ? `${avgPct}%` : '—'}
+              label="Avg WCL rank"
+              sub={`${withKills.length} bosses`}
+              color={parseColor(avgPct)}
+            />
+            <StatCard
+              value={avgEnchant != null ? `${avgEnchant}/100` : '—'}
+              label="Enchant score"
+              sub="weighted 7 slots"
+              color={avgEnchant != null ? parseColor(avgEnchant) : '#555'}
+            />
+            <StatCard
+              value={avgScore != null ? `${avgScore}/${avgMax}` : '—'}
+              label="Avg consume score"
+              sub={`${withCons.length} bosses`}
+              color={avgScore != null ? scoreColor(Number(avgScore), Number(avgMax)) : '#555'}
+            />
+            <StatCard
+              value={overallPct != null ? `${overallPct}%` : '—'}
+              label="Overall score"
+              sub="WCL 50 · Ench 30 · Cons 20"
+              color={tier?.color ?? '#555'}
+            />
+          </div>
+        );
+      })()}
 
       {/* Per-zone boss tables — first zone with kills is open by default */}
       <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
