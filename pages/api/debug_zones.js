@@ -1,39 +1,28 @@
-import { WCL_TOKEN_URL } from '../../lib/constants';
-
-const FRESH_TOKEN = 'https://fresh.warcraftlogs.com/oauth/token';
-const FRESH_API   = 'https://fresh.warcraftlogs.com/api/v2/client';
-
-async function getFreshToken() {
-  const creds = Buffer.from(`${process.env.WCL_CLIENT_ID}:${process.env.WCL_CLIENT_SECRET}`).toString('base64');
-  const r = await fetch(FRESH_TOKEN, {
-    method: 'POST',
-    headers: { Authorization: `Basic ${creds}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials',
-  });
-  const d = await r.json();
-  return d.access_token;
-}
-
-async function freshQuery(token, query, variables = {}) {
-  const r = await fetch(FRESH_API, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables }),
-  });
-  return (await r.json())?.data;
-}
+/**
+ * GET /api/debug_zones?name=Vitoduud&server=thunderstrike&region=EU
+ * Dumps raw zoneRankings response so we can see the exact structure.
+ */
+import { wclFreshQuery } from '../../lib/wcl';
 
 export default async function handler(req, res) {
-  const token = await getFreshToken();
+  const { name = 'Vitoduud', server = 'thunderstrike', region = 'EU' } = req.query;
 
-  const data = await freshQuery(token, `{
-    worldData { zones { id name encounters { id name } } }
-  }`);
+  // Query zone rankings for TBC zones — dump raw response to see structure
+  const data = await wclFreshQuery(`
+    query($name: String!, $serverSlug: String!, $serverRegion: String!) {
+      characterData {
+        character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
+          id classID name
+          ssc_tk:   zoneRankings(zoneID: 1010)
+          bt_hyjal: zoneRankings(zoneID: 1011)
+          kara:     zoneRankings(zoneID: 1007)
+          gruul:    zoneRankings(zoneID: 1008)
+          sunwell:  zoneRankings(zoneID: 1013)
+          za:       zoneRankings(zoneID: 1012)
+        }
+      }
+    }
+  `, { name, serverSlug: server, serverRegion: region });
 
-  const zones = data?.worldData?.zones || [];
-
-  return res.json({
-    totalZones: zones.length,
-    allZones: zones.map(z => ({ id: z.id, name: z.name, encounters: z.encounters?.length || 0 })),
-  });
+  return res.json(data?.characterData?.character ?? { error: 'character not found' });
 }
