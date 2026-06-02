@@ -4,37 +4,37 @@ export default async function handler(req, res) {
   const { name = 'Vitoduud', server = 'thunderstrike', region = 'EU' } = req.query;
 
   try {
-    // Get the full encounter list from SSC/TK zone
-    const zoneData = await wclFreshQuery(`{
-      worldData {
-        zone(id: 1010) { id name encounters { id name } }
+    // 1. Introspect the Character type to find exact args for encounterRankings and zoneRankings
+    const schema = await wclFreshQuery(`{
+      __type(name: "Character") {
+        fields {
+          name
+          args { name type { name kind ofType { name kind } } }
+        }
       }
-    }`).catch(e => ({ _zoneErr: e.message }));
+    }`);
+    const charFields = schema?.__type?.fields || [];
+    const erField = charFields.find(f => f.name === 'encounterRankings');
+    const zrField = charFields.find(f => f.name === 'zoneRankings');
 
-    // Try encounterRankings with the encounter IDs we already know exist
-    // from the worldData.zones dump: SSC/TK has 10 encounters
-    // Let's just try the first zone's encounters directly
-    const encounters = zoneData?.worldData?.zone?.encounters || [];
-
-    // If zone query worked, test encounterRankings with those IDs
-    let encTest = null;
-    if (encounters.length > 0) {
-      const aliases = encounters.slice(0, 4).map(e => `e${e.id}: encounterRankings(encounterID: ${e.id}, limit: 1)`).join('\n');
-      encTest = await wclFreshQuery(`
-        query($n:String!,$s:String!,$r:String!) {
-          characterData {
-            character(name:$n, serverSlug:$s, serverRegion:$r) { ${aliases} }
+    // 2. Try encounterRankings without limit arg
+    const encTest = await wclFreshQuery(`
+      query($n:String!,$s:String!,$r:String!) {
+        characterData {
+          character(name:$n, serverSlug:$s, serverRegion:$r) {
+            e623: encounterRankings(encounterID: 623)
+            e731: encounterRankings(encounterID: 731)
           }
         }
-      `, { n: name, s: server, r: region }).catch(e => ({ _encErr: e.message }));
-    }
+      }
+    `, { n: name, s: server, r: region }).catch(e => ({ _err: e.message }));
 
     return res.json({
-      zoneQuery:  zoneData?._zoneErr ? { error: zoneData._zoneErr } : zoneData?.worldData?.zone,
-      encounters: encounters.slice(0, 4),
-      encRankings: encTest?.characterData?.character ?? encTest,
+      encounterRankingsArgs: erField?.args,
+      zoneRankingsArgs:      zrField?.args,
+      encTest: encTest?.characterData?.character ?? encTest,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0,5) });
+    return res.status(500).json({ error: err.message });
   }
 }
