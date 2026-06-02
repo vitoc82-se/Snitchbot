@@ -27,10 +27,21 @@ function isTBCZone(name) {
   return TBC_KEYWORDS.some(k => n.includes(k));
 }
 
-// WCL numeric classID → class name string (matches our scoring.js class names)
+// WCL classID → class name. WCL uses alphabetical ordering, NOT WoW's internal IDs.
 const CLASS_NAMES = {
-  1: 'Warrior', 2: 'Paladin', 3: 'Hunter', 4: 'Rogue', 5: 'Priest',
-  7: 'Shaman',  8: 'Mage',    9: 'Warlock', 11: 'Druid',
+  1:  'Death Knight',
+  2:  'Druid',
+  3:  'Hunter',
+  4:  'Mage',
+  5:  'Monk',
+  6:  'Paladin',
+  7:  'Priest',
+  8:  'Rogue',
+  9:  'Shaman',
+  10: 'Warlock',
+  11: 'Warrior',
+  12: 'Demon Hunter',
+  13: 'Evoker',
 };
 
 // WCL spec string → role. Best-effort — hybrids can't be perfectly inferred without
