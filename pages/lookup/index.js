@@ -7,22 +7,42 @@ import { classColor } from '../../lib/scoring';
 // ── Combined rating ──────────────────────────────────────────────────────────
 // 60% avg WCL rank % + 40% consumable compliance rate → WoW quality tier
 
+// Enchant slot weights — sum to 100
+// Weapon+Head+Shoulder = 60 → Rare (blue), matching user's "blue rank minimum" rule
+const ENCHANT_WEIGHTS = { enchantMainhand: 25, enchantHead: 20, enchantShoulder: 15,
+                          enchantLegs: 15, enchantGloves: 10, enchantBracer: 8, enchantChest: 7 };
+
+function calcEnchantPct(b) {
+  if (b.enchantScore == null) return null;
+  return b.enchantScore; // already 0-100 weighted
+}
+
 function calcCombinedRating(bosses) {
-  const withRank = bosses.filter(b => b.totalKills > 0 && b.rankPercent != null);
-  const withCons = bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
-  if (!withRank.length && !withCons.length) return null;
+  const withRank    = bosses.filter(b => b.totalKills > 0 && b.rankPercent != null);
+  const withCons    = bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
+  const withEnchant = bosses.filter(b => b.enchantScore != null);
+  if (!withRank.length && !withCons.length && !withEnchant.length) return null;
 
   const avgRank    = withRank.length
-    ? withRank.reduce((s, b) => s + b.rankPercent, 0) / withRank.length : 0;
+    ? withRank.reduce((s, b) => s + b.rankPercent, 0) / withRank.length : null;
   const consPct    = withCons.length
-    ? withCons.reduce((s, b) => s + (b.consumeScore / b.consumeMax) * 100, 0) / withCons.length : 0;
+    ? withCons.reduce((s, b) => s + (b.consumeScore / b.consumeMax) * 100, 0) / withCons.length : null;
+  const enchantPct = withEnchant.length
+    ? withEnchant.reduce((s, b) => s + b.enchantScore, 0) / withEnchant.length : null;
 
-  let combined;
-  if (withRank.length && withCons.length) combined = avgRank * 0.6 + consPct * 0.4;
-  else if (withRank.length)               combined = avgRank;
-  else                                    combined = consPct;
+  // 50% WCL performance + 25% consumables + 25% enchants
+  let combined = 0, totalWeight = 0;
+  if (avgRank    != null) { combined += avgRank    * 0.50; totalWeight += 0.50; }
+  if (consPct    != null) { combined += consPct    * 0.25; totalWeight += 0.25; }
+  if (enchantPct != null) { combined += enchantPct * 0.25; totalWeight += 0.25; }
+  if (totalWeight > 0) combined = combined / totalWeight * 1; // normalise if some components missing
 
-  return { combined: Math.round(combined), avgRank: Math.round(avgRank), consPct: Math.round(consPct) };
+  return {
+    combined:    Math.round(combined),
+    avgRank:     avgRank    != null ? Math.round(avgRank)    : null,
+    consPct:     consPct    != null ? Math.round(consPct)    : null,
+    enchantPct:  enchantPct != null ? Math.round(enchantPct) : null,
+  };
 }
 
 function getTier(score) {
@@ -56,7 +76,11 @@ function RatingBadge({ bosses }) {
         Combined Rating
       </div>
       <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.15rem', textAlign: 'center' }}>
-        WCL {rating.avgRank}% &nbsp;·&nbsp; Consumes {rating.consPct}%
+        {[
+          rating.avgRank    != null && `WCL ${rating.avgRank}%`,
+          rating.consPct    != null && `Cons ${rating.consPct}%`,
+          rating.enchantPct != null && `Ench ${rating.enchantPct}%`,
+        ].filter(Boolean).join('  ·  ')}
       </div>
     </div>
   );
@@ -310,6 +334,33 @@ function BossRow({ b }) {
       }}>
         {b.consumeScore != null ? `${b.consumeScore}/${b.consumeMax}` : '—'}
       </td>
+
+      {/* Enchant cells — new importance order: Wpn Head Shldr Legs Glv Brce Chst */}
+      {b.enchantScore == null ? (
+        [0,1,2,3,4,5,6].map(i => (
+          <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem',
+            borderLeft: i === 0 ? '1px solid #111' : undefined }}>—</td>
+        ))
+      ) : (
+        <>
+          {[
+            { val: b.enchantMainhand, label: 'Wpn' },
+            { val: b.enchantHead,     label: 'Head' },
+            { val: b.enchantShoulder, label: 'Shldr' },
+            { val: b.enchantLegs,     label: 'Legs' },
+            { val: b.enchantGloves,   label: 'Glv' },
+            { val: b.enchantBracer,   label: 'Brce' },
+            { val: b.enchantChest,    label: 'Chst' },
+          ].map(({ val, label }, i) => (
+            <td key={label} style={{
+              ...tdCenter,
+              borderLeft: i === 0 ? '1px solid #111' : undefined,
+            }}>
+              <ConsumeTick val={val} />
+            </td>
+          ))}
+        </>
+      )}
     </tr>
   );
 }
@@ -417,6 +468,18 @@ function ZoneSection({ zone, defaultOpen = false }) {
                 {th('Weapon',   true)}
                 {th('Pot',      true)}
                 {th('Score',    true)}
+                <th colSpan={7} style={{ textAlign: 'center', fontSize: '.7rem', color: '#a335ee', textTransform: 'uppercase', letterSpacing: '.06em', padding: '.5rem .4rem', borderLeft: '1px solid #1a1a1a' }}>
+                  ── Enchants ──
+                </th>
+              </tr>
+              <tr style={{ background: '#060606', borderBottom: '1px solid #111' }}>
+                {['','','','','','','','','','','','','',
+                  'Wpn','Head','Shldr','Legs','Glv','Brce','Chst'
+                ].map((l, i) => (
+                  <th key={i} style={{ textAlign: 'center', fontSize: '.68rem', color: i >= 13 ? '#7a4aaa' : 'transparent', padding: '.25rem .4rem', letterSpacing: '.03em' }}>
+                    {l}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>

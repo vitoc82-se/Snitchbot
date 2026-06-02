@@ -38,6 +38,24 @@ const CLASS_NAMES = {
   13: 'Evoker',
 };
 
+// Gear slot indices in WCL's CombatantInfo gear array (0-indexed, standard WoW order)
+const ENCHANT_SLOTS = { mainhand: 15, head: 0, shoulder: 2, chest: 4, legs: 6, bracer: 8, gloves: 9 };
+
+// Importance weights — must sum to 100.
+// Weapon+Head+Shoulder = 60 → Rare (blue), matching the user's "blue rank minimum" rule.
+const ENCHANT_WEIGHTS = { mainhand: 25, head: 20, shoulder: 15, legs: 15, gloves: 10, bracer: 8, chest: 7 };
+
+function detectEnchants(gear) {
+  const result = {};
+  let score = 0;
+  for (const [slot, idx] of Object.entries(ENCHANT_SLOTS)) {
+    const enchanted = (gear?.[idx]?.permanentEnchant ?? 0) > 0;
+    result[slot] = enchanted;
+    if (enchanted) score += ENCHANT_WEIGHTS[slot] ?? 0;
+  }
+  return { ...result, enchantScore: score };
+}
+
 // WCL RANKING zone IDs for TBC Fresh content.
 // These are DIFFERENT from worldData zone IDs (1007, 1008, 1010...).
 // Discovered by scanning zoneRankings(zoneID: X) across a range.
@@ -117,9 +135,26 @@ async function ensureTables() {
       healthstone        INT     NOT NULL DEFAULT 0,
       consume_score      INT,
       consume_max        INT,
+      enchant_mainhand   BOOLEAN,
+      enchant_head       BOOLEAN,
+      enchant_shoulder   BOOLEAN,
+      enchant_chest      BOOLEAN,
+      enchant_legs       BOOLEAN,
+      enchant_bracer     BOOLEAN,
+      enchant_gloves     BOOLEAN,
+      enchant_score      INT,
       UNIQUE(player_id, encounter_id)
     )
   `;
+  // Add enchant columns to existing tables (safe to run repeatedly)
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_mainhand BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_head     BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_shoulder BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_chest    BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_legs     BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_bracer   BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_gloves   BOOLEAN`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_score    INT`;
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -295,6 +330,9 @@ export default async function handler(req, res) {
             flask: false, battle_elixir: false, guardian_elixir: false, food: false,
             weapon_oil: false, weapon_stone: false,
             haste_potion: 0, destruction_potion: 0, mana_potion: 0, healthstone: 0,
+            enchant_mainhand: false, enchant_head: false, enchant_shoulder: false,
+            enchant_chest: false, enchant_legs: false, enchant_bracer: false,
+            enchant_gloves: false, enchantScore: 0,
           };
 
           if (myEvent) {
@@ -307,6 +345,18 @@ export default async function handler(req, res) {
               const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
               if (cat) result[cat] = true;
             }
+            // Detect permanent enchants on key gear slots
+            const enchants = detectEnchants(myEvent.gear);
+            Object.assign(result, {
+              enchant_mainhand: enchants.mainhand,
+              enchant_head:     enchants.head,
+              enchant_shoulder: enchants.shoulder,
+              enchant_chest:    enchants.chest,
+              enchant_legs:     enchants.legs,
+              enchant_bracer:   enchants.bracer,
+              enchant_gloves:   enchants.gloves,
+              enchantScore:     enchants.enchantScore,
+            });
           }
 
           for (const cast of caEvents) {
@@ -350,7 +400,9 @@ export default async function handler(req, res) {
           rank_percent, median_percent, best_amount, total_kills, fastest_kill,
           flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone,
           haste_potion, destruction_potion, mana_potion, healthstone,
-          consume_score, consume_max
+          consume_score, consume_max,
+          enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
+          enchant_legs, enchant_bracer, enchant_gloves, enchant_score
         ) VALUES (
           ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.encId}, ${enc.bossName},
           ${ranking?.reportCode ?? null}, ${ranking?.bestSpec ?? null},
@@ -362,7 +414,11 @@ export default async function handler(req, res) {
           ${cons?.weapon_oil       ?? null}, ${cons?.weapon_stone     ?? null},
           ${cons?.haste_potion       ?? 0}, ${cons?.destruction_potion ?? 0},
           ${cons?.mana_potion        ?? 0}, ${cons?.healthstone        ?? 0},
-          ${cScore}, ${cMax}
+          ${cScore}, ${cMax},
+          ${cons?.enchant_mainhand ?? null}, ${cons?.enchant_head     ?? null},
+          ${cons?.enchant_shoulder ?? null}, ${cons?.enchant_chest    ?? null},
+          ${cons?.enchant_legs     ?? null}, ${cons?.enchant_bracer   ?? null},
+          ${cons?.enchant_gloves   ?? null}, ${cons?.enchantScore     ?? null}
         )
         ON CONFLICT (player_id, encounter_id) DO UPDATE SET
           report_code = EXCLUDED.report_code, best_spec = EXCLUDED.best_spec,
@@ -374,7 +430,11 @@ export default async function handler(req, res) {
           weapon_oil = EXCLUDED.weapon_oil, weapon_stone = EXCLUDED.weapon_stone,
           haste_potion = EXCLUDED.haste_potion, destruction_potion = EXCLUDED.destruction_potion,
           mana_potion = EXCLUDED.mana_potion, healthstone = EXCLUDED.healthstone,
-          consume_score = EXCLUDED.consume_score, consume_max = EXCLUDED.consume_max
+          consume_score = EXCLUDED.consume_score, consume_max = EXCLUDED.consume_max,
+          enchant_mainhand = EXCLUDED.enchant_mainhand, enchant_head = EXCLUDED.enchant_head,
+          enchant_shoulder = EXCLUDED.enchant_shoulder, enchant_chest = EXCLUDED.enchant_chest,
+          enchant_legs = EXCLUDED.enchant_legs, enchant_bracer = EXCLUDED.enchant_bracer,
+          enchant_gloves = EXCLUDED.enchant_gloves, enchant_score = EXCLUDED.enchant_score
       `;
     }
 

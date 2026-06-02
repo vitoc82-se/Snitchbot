@@ -52,7 +52,9 @@ export default async function handler(req, res) {
         rank_percent, median_percent, best_amount, total_kills, fastest_kill,
         flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone,
         haste_potion, destruction_potion, mana_potion, healthstone,
-        consume_score, consume_max
+        consume_score, consume_max,
+        enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
+        enchant_legs, enchant_bracer, enchant_gloves, enchant_score
       FROM player_lookup_bosses
       WHERE player_id = ${p.id}
       ORDER BY zone_id, encounter_id
@@ -94,6 +96,14 @@ export default async function handler(req, res) {
         healthstone:      Number(b.healthstone),
         consumeScore:     b.consume_score !== null ? Number(b.consume_score) : null,
         consumeMax:       b.consume_max   !== null ? Number(b.consume_max)   : null,
+        enchantMainhand:  b.enchant_mainhand,
+        enchantHead:      b.enchant_head,
+        enchantShoulder:  b.enchant_shoulder,
+        enchantChest:     b.enchant_chest,
+        enchantLegs:      b.enchant_legs,
+        enchantBracer:    b.enchant_bracer,
+        enchantGloves:    b.enchant_gloves,
+        enchantScore:     b.enchant_score !== null ? Number(b.enchant_score) : null,
       })),
     });
 
