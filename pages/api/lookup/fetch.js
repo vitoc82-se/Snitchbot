@@ -38,17 +38,18 @@ const CLASS_NAMES = {
   13: 'Evoker',
 };
 
-// WCL TBC zone IDs in worldData (Fresh server)
-const TBC_ZONE_IDS = [1007, 1008, 1010, 1011, 1012, 1013];
-// Zone names matching worldData zone IDs above (for display)
-const ZONE_NAMES = {
-  1007: 'Karazhan',
-  1008: 'Gruul / Magtheridon',
-  1010: 'SSC / TK',
-  1011: 'BT / Hyjal',
-  1012: "Zul'Aman",
-  1013: 'Sunwell Plateau',
-};
+// WCL RANKING zone IDs for TBC Fresh content.
+// These are DIFFERENT from worldData zone IDs (1007, 1008, 1010...).
+// Discovered by scanning zoneRankings(zoneID: X) across a range.
+// Add new entries here as future content phases are released on the Fresh server.
+const TBC_RANKING_ZONES = [
+  { id: 1047, name: 'Karazhan'           },
+  { id: 1048, name: 'Gruul / Magtheridon' },
+  { id: 1056, name: 'SSC / TK'           },
+  // { id: ???, name: "Zul'Aman"         },  // add when released
+  // { id: ???, name: 'BT / Hyjal'       },  // add when released
+  // { id: ???, name: 'Sunwell Plateau'  },  // add when released
+];
 
 function specToRole(spec) {
   if (!spec) return 'dps';
@@ -148,35 +149,17 @@ export default async function handler(req, res) {
     `;
     const playerId = profile.id;
 
-    // ── 1. Get all TBC encounter IDs from worldData (Fresh API) ───────────
-    const zoneAliasesWD = TBC_ZONE_IDS.map(id => `z${id}: zone(id: ${id}) { encounters { id name } }`).join('\n');
-    const worldData = await wclFreshQuery(`{ worldData { ${zoneAliasesWD} } }`);
-
-    // Build flat encounter list with worldData IDs and ranking IDs (+100000)
-    const allEncounters = TBC_ZONE_IDS.flatMap(zoneId => {
-      const enc = worldData?.worldData?.[`z${zoneId}`]?.encounters || [];
-      return enc.map(e => ({
-        worldId:  e.id,
-        rankId:   e.id + 100000,   // ranking encounter ID used in encounterRankings
-        bossName: e.name,
-        zoneId,
-        zoneName: ZONE_NAMES[zoneId] || `Zone ${zoneId}`,
-      }));
-    });
-
-    if (!allEncounters.length) throw new Error('Could not load TBC encounter list from WCL');
-
-    // ── 2. Character info + all encounter rankings (Fresh API, one query) ──
-    const encAliases = allEncounters.map(e =>
-      `e${e.rankId}: encounterRankings(encounterID: ${e.rankId})`
-    ).join('\n');
+    // ── 1. Character info + zone rankings for all TBC zones (one query) ─────
+    // zoneRankings returns all encounter data (%, kills, DPS) AND encounter IDs.
+    // We use those encounter IDs for encounterRankings to get report codes.
+    const zrAliases = TBC_RANKING_ZONES.map(z => `zr${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');
     const charResult = await wclFreshQuery(`
       query($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
           character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
             id classID
             guilds { id name }
-            ${encAliases}
+            ${zrAliases}
           }
         }
       }
@@ -188,32 +171,66 @@ export default async function handler(req, res) {
     const className = CLASS_NAMES[char.classID] || 'Unknown';
     const guildName = char.guilds?.[0]?.name || null;
 
-    // Parse encounter rankings — build a map of boss data and determine role from spec
-    const rankingMap = {}; // worldId → boss data
+    // Parse zone rankings — build flat encounter list with all ranking data
+    // rankingMap key = ranking encounter ID (e.g. 100623 for Hydross)
+    const rankingMap = {}; // rankEncId → boss data
+    const allEncounters = []; // all encounters across all zones (including 0-kill ones)
     let bestSpec = null;
 
-    for (const enc of allEncounters) {
-      const er = char[`e${enc.rankId}`];
-      if (!er || er.error || !er.totalKills) continue;
+    for (const zone of TBC_RANKING_ZONES) {
+      const zr = char[`zr${zone.id}`];
+      const rankings = zr?.rankings || [];
+      for (const r of rankings) {
+        const encId = r.encounter?.id;
+        if (!encId) continue;
+        const entry = {
+          encId,          // ranking encounter ID (used for encounterRankings calls)
+          bossName:      r.encounter.name,
+          zoneId:        zone.id,
+          zoneName:      zone.name,
+          rankPercent:   r.rankPercent   ?? null,
+          medianPercent: r.medianPercent ?? null,
+          bestAmount:    r.bestAmount    ?? null,
+          totalKills:    r.totalKills    ?? 0,
+          fastestKill:   r.fastestKill   ?? null,
+          bestSpec:      r.bestSpec      ?? null,
+        };
+        allEncounters.push(entry);
+        if ((r.totalKills ?? 0) > 0) {
+          rankingMap[encId] = entry;
+          if (r.bestSpec && !bestSpec) bestSpec = r.bestSpec;
+        }
+      }
+    }
 
-      const bestKill = er.ranks?.[0];
-      if (!bestKill) continue;
+    if (!allEncounters.length) throw new Error('No TBC encounter data returned from WCL');
 
-      const fightStart = bestKill.startTime - bestKill.report.startTime;
+    // ── 2. Get report codes for each boss with kills (encounterRankings) ────
+    const withKills = Object.values(rankingMap);
+    if (withKills.length > 0) {
+      const encAliases = withKills.map(e =>
+        `e${e.encId}: encounterRankings(encounterID: ${e.encId})`
+      ).join('\n');
+      const encResult = await wclFreshQuery(`
+        query($name: String!, $serverSlug: String!, $serverRegion: String!) {
+          characterData {
+            character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
+              ${encAliases}
+            }
+          }
+        }
+      `, { name: cleanName, serverSlug: cleanSlug, serverRegion: cleanRegion });
 
-      rankingMap[enc.worldId] = {
-        ...enc,
-        rankPercent:   bestKill.rankPercent ?? null,
-        medianPercent: er.medianPerformance  ?? null,
-        bestAmount:    er.bestAmount         ?? null,
-        totalKills:    er.totalKills         ?? 0,
-        fastestKill:   er.fastestKill        ?? null,
-        bestSpec:      bestKill.spec         ?? null,
-        reportCode:    bestKill.report?.code ?? null,
-        fightStart,                                         // ms from report start
-        fightEnd:      fightStart + (bestKill.duration ?? 0),
-      };
-      if (bestKill.spec && !bestSpec) bestSpec = bestKill.spec;
+      const encChar = encResult?.characterData?.character;
+      for (const enc of withKills) {
+        const er = encChar?.[`e${enc.encId}`];
+        const bestKill = er?.ranks?.[0];
+        if (!bestKill?.report?.code) continue;
+        const fightStart = bestKill.startTime - bestKill.report.startTime;
+        enc.reportCode = bestKill.report.code;
+        enc.fightStart = fightStart;
+        enc.fightEnd   = fightStart + (bestKill.duration ?? 0);
+      }
     }
 
     const role = specToRole(bestSpec);
@@ -226,23 +243,22 @@ export default async function handler(req, res) {
     `;
 
     // ── 3. Fetch consumables grouped by report code (retail API) ──────────
-    // The retail WCL API can read fresh report data — same as analyze.js.
-    const byReport = {}; // reportCode → [{ worldId, fightStart, fightEnd }]
-    for (const boss of Object.values(rankingMap)) {
+    const byReport = {};
+    for (const boss of withKills) {
       if (!boss.reportCode) continue;
       if (!byReport[boss.reportCode]) byReport[boss.reportCode] = [];
       byReport[boss.reportCode].push(boss);
     }
 
-    const consumableMap = {}; // worldId → consumable fields
+    const consumableMap = {}; // encId → consumable fields
 
     await Promise.all(
       Object.entries(byReport).map(async ([code, bosses]) => {
         const bossAliases = bosses.flatMap(b => {
           const prePot = Math.max(0, b.fightStart - PREPOT_WINDOW_MS);
           return [
-            `ci_${b.worldId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
-            `ca_${b.worldId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
+            `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
+            `ca_${b.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
           ];
         }).join('\n');
 
@@ -259,7 +275,7 @@ export default async function handler(req, res) {
         const report = repResult?.reportData?.report;
         if (!report) return;
 
-        const actorMap   = {};
+        const actorMap = {};
         (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
 
         const auraNameMap = {};
@@ -271,8 +287,8 @@ export default async function handler(req, res) {
         if (!sourceId) return;
 
         for (const boss of bosses) {
-          const ciEvents = report[`ci_${boss.worldId}`]?.data || [];
-          const caEvents = report[`ca_${boss.worldId}`]?.data || [];
+          const ciEvents = report[`ci_${boss.encId}`]?.data || [];
+          const caEvents = report[`ca_${boss.encId}`]?.data || [];
           const myEvent  = ciEvents.find(e => String(e.sourceID) === String(sourceId));
 
           const result = {
@@ -299,7 +315,7 @@ export default async function handler(req, res) {
             if (cat && typeof result[cat] === 'number') result[cat]++;
           }
 
-          consumableMap[boss.worldId] = result;
+          consumableMap[boss.encId] = result;
         }
       })
     );
@@ -308,8 +324,8 @@ export default async function handler(req, res) {
     await sql`DELETE FROM player_lookup_bosses WHERE player_id = ${playerId}`;
 
     for (const enc of allEncounters) {
-      const ranking = rankingMap[enc.worldId];
-      const cons    = consumableMap[enc.worldId] ?? null;
+      const ranking = rankingMap[enc.encId] ?? null;
+      const cons    = consumableMap[enc.encId] ?? null;
 
       // If no ranking data at all (player never killed this boss) — still store it
       const fakePlayer = cons && ranking ? {
@@ -336,7 +352,7 @@ export default async function handler(req, res) {
           haste_potion, destruction_potion, mana_potion, healthstone,
           consume_score, consume_max
         ) VALUES (
-          ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.worldId}, ${enc.bossName},
+          ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.encId}, ${enc.bossName},
           ${ranking?.reportCode ?? null}, ${ranking?.bestSpec ?? null},
           ${ranking?.rankPercent ?? null}, ${ranking?.medianPercent ?? null},
           ${ranking?.bestAmount  ?? null}, ${ranking?.totalKills    ?? 0},
