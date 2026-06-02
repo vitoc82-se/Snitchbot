@@ -260,7 +260,40 @@ function LoadingState({ msg }) {
 
 // ── Player results ────────────────────────────────────────────────────────────
 
-function StatCard({ value, label, sub, color }) {
+function InfoTip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block', verticalAlign: 'middle', marginLeft: '.3rem' }}>
+      <span
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          cursor: 'help', color: '#3a3a3a', fontSize: '.6rem', fontWeight: 700,
+          border: '1px solid #2a2a2a', borderRadius: '50%',
+          width: 13, height: 13, display: 'inline-flex',
+          alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+          userSelect: 'none',
+        }}
+      >?</span>
+      {show && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#151515', border: '1px solid #2a2a2a',
+          borderRadius: 5, padding: '.6rem .8rem',
+          fontSize: '.75rem', color: '#999',
+          width: 210, zIndex: 200, lineHeight: 1.55,
+          whiteSpace: 'normal', pointerEvents: 'none',
+          boxShadow: '0 4px 20px rgba(0,0,0,.5)',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
+}
+
+function StatCard({ value, label, sub, color, info }) {
   return (
     <div style={{
       background: '#0d0d0d', border: '1px solid #222', borderRadius: 6,
@@ -271,6 +304,7 @@ function StatCard({ value, label, sub, color }) {
       </div>
       <div style={{ color: '#666', fontSize: '.78rem', marginTop: '.25rem', textTransform: 'uppercase', letterSpacing: '.05em' }}>
         {label}
+        {info && <InfoTip text={info} />}
       </div>
       {sub && <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.15rem' }}>{sub}</div>}
     </div>
@@ -525,24 +559,28 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
               label="Avg WCL rank"
               sub={`${withKills.length} bosses`}
               color={parseColor(avgPct)}
+              info="Average WCL parse percentile across every boss the player has a recorded kill on. Higher = better performance relative to other players."
             />
             <StatCard
               value={avgEnchant != null ? `${avgEnchant}/100` : '—'}
               label="Enchant score"
-              sub="weighted 7 slots"
+              sub="7 slots, weighted"
               color={avgEnchant != null ? parseColor(avgEnchant) : '#555'}
+              info={`Weighted enchant score out of 100, based on the best logged kill per boss.\n\nWeights: Weapon 25 · Head 20 · Shoulder 15 · Legs 15 · Gloves 10 · Bracer 8 · Chest 7\n\nWeapon + Head + Shoulder = 60 (Rare). All 7 = 100 (Legendary).`}
             />
             <StatCard
               value={avgScore != null ? `${avgScore}/${avgMax}` : '—'}
               label="Avg consume score"
               sub={`${withCons.length} bosses`}
               color={avgScore != null ? scoreColor(Number(avgScore), Number(avgMax)) : '#555'}
+              info="Average consumable score per boss kill. Checks Flask/Battle Elixir, Guardian Elixir/Flask, Food, and relevant in-combat potions (class & role dependent). Max varies by class."
             />
             <StatCard
               value={overallPct != null ? `${overallPct}%` : '—'}
               label="Overall score"
-              sub="WCL 50 · Ench 30 · Cons 20"
+              sub="WCL 50% · Ench 30% · Cons 20%"
               color={tier?.color ?? '#555'}
+              info="Combined score weighted by importance: WCL rank % (50%) + Enchant score (30%) + Consumable compliance (20%). This is the number behind the Legendary/Epic/Rare tier badge."
             />
           </div>
         );

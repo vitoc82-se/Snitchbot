@@ -37,6 +37,12 @@ function PlayerLookupTeaser() {
     padding: '.45rem .6rem', fontSize: '.82rem', cursor: 'pointer',
   };
 
+  const inputStyle = {
+    width: '100%', fontSize: '.88rem',
+    background: '#111', border: '1px solid #2a2a2a',
+    color: '#ddd', borderRadius: 4, padding: '.45rem .65rem',
+  };
+
   return (
     <form onSubmit={go} style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
       <input
@@ -44,7 +50,7 @@ function PlayerLookupTeaser() {
         placeholder="Character name…"
         value={name}
         onChange={e => setName(e.target.value)}
-        style={{ width: '100%', fontSize: '.88rem' }}
+        style={inputStyle}
       />
       <div style={{ display: 'flex', gap: '.4rem' }}>
         <select value={server} onChange={pickServer} style={{ ...selectStyle, flex: 1 }}>
