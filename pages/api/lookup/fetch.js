@@ -1,12 +1,18 @@
 /**
  * POST /api/lookup/fetch
- * Fetches a player's full TBC raid history from WCL and stores it in the DB.
- * This runs synchronously — the client waits for the response (20-60s).
- * Subsequent lookups for the same player are served instantly from the cache.
+ * Fetches a player's full TBC raid history from WCL Fresh and stores in DB.
+ *
+ * Key findings from API exploration:
+ * - Character/zone data: fresh.warcraftlogs.com API (wclFreshQuery) — same credentials
+ * - Report CombatantInfo: warcraftlogs.com API (wclQuery) — already works for fresh logs
+ * - worldData encounter IDs (e.g. 623 for Hydross) + 100000 = ranking encounter ID (100623)
+ * - encounterRankings returns { totalKills, bestAmount, medianPerformance, fastestKill,
+ *     ranks: [{ rankPercent, spec, duration, startTime, report: { code, startTime, fightID } }] }
+ * - ranks[0] = best kill, sorted by rankPercent desc
+ * - Fight time (relative to report): startTime - report.startTime
  */
+
 import sql from '../../../lib/db';
-// wclFreshQuery  → fresh.warcraftlogs.com (character lookups, zone data)
-// wclQuery       → warcraftlogs.com      (report CombatantInfo/cast events)
 import { wclQuery, wclFreshQuery } from '../../../lib/wcl';
 import {
   PREPOT_WINDOW_MS,
@@ -15,19 +21,7 @@ import {
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
-// TBC zone keywords — matched against actual Fresh WCL zone names.
-// Fresh combines zones: "SSC / TK", "BT / Hyjal", "Gruul / Magtheridon".
-const TBC_KEYWORDS = [
-  'karazhan', 'gruul', 'magtheridon', 'ssc', 'hyjal',
-  'sunwell', "zul'aman", 'serpentshrine', 'black temple',
-];
-
-function isTBCZone(name) {
-  const n = (name || '').toLowerCase();
-  return TBC_KEYWORDS.some(k => n.includes(k));
-}
-
-// WCL classID → class name. WCL uses alphabetical ordering, NOT WoW's internal IDs.
+// WCL classID → class name (WCL uses alphabetical ordering, not WoW internal IDs)
 const CLASS_NAMES = {
   1:  'Death Knight',
   2:  'Druid',
@@ -44,8 +38,18 @@ const CLASS_NAMES = {
   13: 'Evoker',
 };
 
-// WCL spec string → role. Best-effort — hybrids can't be perfectly inferred without
-// seeing the player play, but spec name is a reliable signal.
+// WCL TBC zone IDs in worldData (Fresh server)
+const TBC_ZONE_IDS = [1007, 1008, 1010, 1011, 1012, 1013];
+// Zone names matching worldData zone IDs above (for display)
+const ZONE_NAMES = {
+  1007: 'Karazhan',
+  1008: 'Gruul / Magtheridon',
+  1010: 'SSC / TK',
+  1011: 'BT / Hyjal',
+  1012: "Zul'Aman",
+  1013: 'Sunwell Plateau',
+};
+
 function specToRole(spec) {
   if (!spec) return 'dps';
   const s = spec.toLowerCase();
@@ -54,19 +58,6 @@ function specToRole(spec) {
   return 'dps';
 }
 
-// Parse color tier for WCL percentile (used in display, stored as-is)
-// Same logic as WoW armory parse colors.
-export function parseColor(pct) {
-  if (pct == null) return '#444';
-  if (pct >= 99)   return '#e6cc80'; // legendary
-  if (pct >= 95)   return '#ff8000'; // epic
-  if (pct >= 75)   return '#a335ee'; // purple
-  if (pct >= 50)   return '#0070dd'; // blue
-  if (pct >= 25)   return '#1eff00'; // green
-  return '#888';
-}
-
-// Same consumable detection logic as analyze.js — copied here to avoid coupling.
 function detectBuff(buffName, buffId, selfApplied) {
   const n = (buffName || '').toLowerCase();
   if (n.includes('well fed'))   return 'food';
@@ -147,7 +138,7 @@ export default async function handler(req, res) {
   try {
     await ensureTables();
 
-    // Upsert profile as 'fetching'
+    // Upsert profile
     const [profile] = await sql`
       INSERT INTO player_lookup_profiles (name, server_slug, server_region, fetch_status)
       VALUES (${cleanName}, ${cleanSlug}, ${cleanRegion}, 'fetching')
@@ -157,62 +148,74 @@ export default async function handler(req, res) {
     `;
     const playerId = profile.id;
 
-    // ── 1. Discover TBC zones via the Fresh WCL API ───────────────────────
-    const zonesData = await wclFreshQuery(`{ worldData { zones { id name encounters { id name } } } }`);
-    const tbcZones  = (zonesData?.worldData?.zones || []).filter(z => isTBCZone(z.name));
-    if (!tbcZones.length) throw new Error(
-      `No TBC zones found. Got: ${(zonesData?.worldData?.zones || []).map(z => z.name).join(', ')}`
-    );
+    // ── 1. Get all TBC encounter IDs from worldData (Fresh API) ───────────
+    const zoneAliasesWD = TBC_ZONE_IDS.map(id => `z${id}: zone(id: ${id}) { encounters { id name } }`).join('\n');
+    const worldData = await wclFreshQuery(`{ worldData { ${zoneAliasesWD} } }`);
 
-    // ── 2. Character info + zone rankings (Fresh API) ─────────────────────
-    const zoneAliases = tbcZones.map(z => `z${z.id}: zoneRankings(zoneID: ${z.id})`).join('\n');
-    const charResult  = await wclFreshQuery(`
-      query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
+    // Build flat encounter list with worldData IDs and ranking IDs (+100000)
+    const allEncounters = TBC_ZONE_IDS.flatMap(zoneId => {
+      const enc = worldData?.worldData?.[`z${zoneId}`]?.encounters || [];
+      return enc.map(e => ({
+        worldId:  e.id,
+        rankId:   e.id + 100000,   // ranking encounter ID used in encounterRankings
+        bossName: e.name,
+        zoneId,
+        zoneName: ZONE_NAMES[zoneId] || `Zone ${zoneId}`,
+      }));
+    });
+
+    if (!allEncounters.length) throw new Error('Could not load TBC encounter list from WCL');
+
+    // ── 2. Character info + all encounter rankings (Fresh API, one query) ──
+    const encAliases = allEncounters.map(e => `e${e.rankId}: encounterRankings(encounterID: ${e.rankId})`).join('\n');
+    const charResult = await wclFreshQuery(`
+      query($name: String!, $serverSlug: String!, $serverRegion: String!) {
         characterData {
           character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
             id classID
             guilds { id name }
-            ${zoneAliases}
+            ${encAliases}
           }
         }
       }
     `, { name: cleanName, serverSlug: cleanSlug, serverRegion: cleanRegion });
 
     const char = charResult?.characterData?.character;
-    if (!char) throw new Error(`Player "${cleanName}" not found on Warcraft Logs for ${cleanSlug} (${cleanRegion}). Check spelling and realm slug.`);
+    if (!char) throw new Error(`Player "${cleanName}" not found on Warcraft Logs (${cleanSlug}, ${cleanRegion})`);
 
     const className = CLASS_NAMES[char.classID] || 'Unknown';
     const guildName = char.guilds?.[0]?.name || null;
 
-    // Parse zone rankings into a flat map: encounterId → ranking row
-    const rankingMap = {}; // encId → { zoneId, zoneName, bossName, rankPercent, ... }
+    // Parse encounter rankings — build a map of boss data and determine role from spec
+    const rankingMap = {}; // worldId → boss data
     let bestSpec = null;
 
-    for (const zone of tbcZones) {
-      const zr = char[`z${zone.id}`];
-      if (!zr?.rankings?.length) continue;
-      for (const r of zr.rankings) {
-        const encId = r.encounter?.id;
-        if (!encId) continue;
-        rankingMap[encId] = {
-          zoneId:        zone.id,
-          zoneName:      zone.name,
-          bossName:      r.encounter.name,
-          encounterId:   encId,
-          rankPercent:   r.rankPercent   ?? null,
-          medianPercent: r.medianPercent ?? null,
-          bestAmount:    r.bestAmount    ?? null,
-          totalKills:    r.totalKills    ?? 0,
-          fastestKill:   r.fastestKill   ?? null,
-          bestSpec:      r.bestSpec      ?? null,
-        };
-        if (r.bestSpec && !bestSpec) bestSpec = r.bestSpec;
-      }
+    for (const enc of allEncounters) {
+      const er = char[`e${enc.rankId}`];
+      if (!er || er.error || !er.totalKills) continue;
+
+      const bestKill = er.ranks?.[0];
+      if (!bestKill) continue;
+
+      const fightStart = bestKill.startTime - bestKill.report.startTime;
+
+      rankingMap[enc.worldId] = {
+        ...enc,
+        rankPercent:   bestKill.rankPercent ?? null,
+        medianPercent: er.medianPerformance  ?? null,
+        bestAmount:    er.bestAmount         ?? null,
+        totalKills:    er.totalKills         ?? 0,
+        fastestKill:   er.fastestKill        ?? null,
+        bestSpec:      bestKill.spec         ?? null,
+        reportCode:    bestKill.report?.code ?? null,
+        fightStart,                                         // ms from report start
+        fightEnd:      fightStart + (bestKill.duration ?? 0),
+      };
+      if (bestKill.spec && !bestSpec) bestSpec = bestKill.spec;
     }
 
     const role = specToRole(bestSpec);
 
-    // Update profile with character details
     await sql`
       UPDATE player_lookup_profiles
       SET class_id = ${char.classID}, class_name = ${className},
@@ -220,70 +223,29 @@ export default async function handler(req, res) {
       WHERE id = ${playerId}
     `;
 
-    // ── 3. Encounter rankings → get report codes for each boss with kills ──
-    const encountersWithKills = Object.values(rankingMap)
-      .filter(r => r.totalKills > 0)
-      .map(r => r.encounterId);
-
-    const reportCodeMap = {}; // encId → { reportCode, startTime (in report), duration, spec }
-
-    if (encountersWithKills.length > 0) {
-      const encAliases = encountersWithKills
-        .map(id => `e${id}: encounterRankings(encounterID: ${id}, limit: 1)`)
-        .join('\n');
-
-      const encResult = await wclFreshQuery(`
-        query ($name: String!, $serverSlug: String!, $serverRegion: String!) {
-          characterData {
-            character(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
-              ${encAliases}
-            }
-          }
-        }
-      `, { name: cleanName, serverSlug: cleanSlug, serverRegion: cleanRegion });
-
-      const encChar = encResult?.characterData?.character;
-      if (encChar) {
-        for (const encId of encountersWithKills) {
-          const er   = encChar[`e${encId}`];
-          const best = er?.rankings?.[0];
-          if (!best?.report?.code) continue;
-          reportCodeMap[encId] = {
-            reportCode: best.report.code,
-            startTime:  best.startTime ?? 0,   // ms from report start
-            duration:   best.duration  ?? 300000,
-            spec:       best.spec      ?? null,
-          };
-        }
-      }
+    // ── 3. Fetch consumables grouped by report code (retail API) ──────────
+    // The retail WCL API can read fresh report data — same as analyze.js.
+    const byReport = {}; // reportCode → [{ worldId, fightStart, fightEnd }]
+    for (const boss of Object.values(rankingMap)) {
+      if (!boss.reportCode) continue;
+      if (!byReport[boss.reportCode]) byReport[boss.reportCode] = [];
+      byReport[boss.reportCode].push(boss);
     }
 
-    // ── 4. Fetch consumables — grouped by report code to batch WCL calls ──
-    // Multiple bosses from the same report are fetched in a single GraphQL query.
-    const byReport = {}; // reportCode → [{ encId, startTime, duration }]
-    for (const [encId, info] of Object.entries(reportCodeMap)) {
-      const code = info.reportCode;
-      if (!byReport[code]) byReport[code] = [];
-      byReport[code].push({ encId: Number(encId), ...info });
-    }
-
-    const consumableMap = {}; // encId → consumable boolean/int fields
+    const consumableMap = {}; // worldId → consumable fields
 
     await Promise.all(
       Object.entries(byReport).map(async ([code, bosses]) => {
-        // Build batched aliases: CombatantInfo + Cast events per boss, plus buffs table for name lookup
         const bossAliases = bosses.flatMap(b => {
-          const st     = b.startTime;
-          const et     = b.startTime + b.duration;
-          const prePot = Math.max(0, st - PREPOT_WINDOW_MS);
+          const prePot = Math.max(0, b.fightStart - PREPOT_WINDOW_MS);
           return [
-            `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${st}, endTime: ${et}) { data }`,
-            `ca_${b.encId}: events(dataType: Casts, startTime: ${prePot}, endTime: ${et}) { data }`,
+            `ci_${b.worldId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
+            `ca_${b.worldId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
           ];
         }).join('\n');
 
         const repResult = await wclQuery(`
-          query ($code: String!) {
+          query($code: String!) {
             reportData { report(code: $code) {
               masterData { actors(type: "Player") { id name } }
               buffs: table(dataType: Buffs, startTime: 0, endTime: 9999999999) { data }
@@ -295,25 +257,21 @@ export default async function handler(req, res) {
         const report = repResult?.reportData?.report;
         if (!report) return;
 
-        // Build actor and aura name maps
-        const actorMap = {};
+        const actorMap   = {};
         (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
 
         const auraNameMap = {};
         (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
 
-        // Find the player's actor ID
         const targetLower = cleanName.toLowerCase();
-        const sourceId = Object.entries(actorMap)
+        const sourceId    = Object.entries(actorMap)
           .find(([, n]) => n.toLowerCase() === targetLower)?.[0];
         if (!sourceId) return;
 
         for (const boss of bosses) {
-          const ciEvents = report[`ci_${boss.encId}`]?.data || [];
-          const caEvents = report[`ca_${boss.encId}`]?.data || [];
-
-          // Find this player's CombatantInfo event
-          const myEvent = ciEvents.find(e => String(e.sourceID) === String(sourceId));
+          const ciEvents = report[`ci_${boss.worldId}`]?.data || [];
+          const caEvents = report[`ca_${boss.worldId}`]?.data || [];
+          const myEvent  = ciEvents.find(e => String(e.sourceID) === String(sourceId));
 
           const result = {
             flask: false, battle_elixir: false, guardian_elixir: false, food: false,
@@ -336,87 +294,72 @@ export default async function handler(req, res) {
           for (const cast of caEvents) {
             if (String(cast.sourceID) !== String(sourceId)) continue;
             const cat = POTION_CAST_IDS[cast.abilityGameID];
-            if (cat) result[cat] = (typeof result[cat] === 'number' ? result[cat] : 0) + 1;
+            if (cat && typeof result[cat] === 'number') result[cat]++;
           }
 
-          consumableMap[boss.encId] = result;
+          consumableMap[boss.worldId] = result;
         }
       })
     );
 
-    // ── 5. Write all boss rows to DB ──────────────────────────────────────
+    // ── 4. Write all boss rows to DB ──────────────────────────────────────
     await sql`DELETE FROM player_lookup_bosses WHERE player_id = ${playerId}`;
 
-    for (const zone of tbcZones) {
-      for (const enc of (zone.encounters || [])) {
-        const ranking = rankingMap[enc.id];
-        if (!ranking) continue; // player has no data for this boss at all
+    for (const enc of allEncounters) {
+      const ranking = rankingMap[enc.worldId];
+      const cons    = consumableMap[enc.worldId] ?? null;
 
-        const cons      = consumableMap[enc.id] ?? null;
-        const repInfo   = reportCodeMap[enc.id]  ?? null;
-        const bossSpec  = repInfo?.spec ?? ranking.bestSpec ?? null;
+      // If no ranking data at all (player never killed this boss) — still store it
+      const fakePlayer = cons && ranking ? {
+        class: className, role,
+        flask:              cons.flask,
+        battle_elixir:      cons.battle_elixir,
+        guardian_elixir:    cons.guardian_elixir,
+        food:               cons.food,
+        weapon_oil:         cons.weapon_oil,
+        weapon_stone:       cons.weapon_stone,
+        haste_potion:       cons.haste_potion,
+        destruction_potion: cons.destruction_potion,
+        mana_potion:        cons.mana_potion,
+      } : null;
 
-        // Build a player-like object for the scoring functions
-        const fakePlayer = cons ? {
-          class: className, role,
-          flask:              cons.flask,
-          battle_elixir:      cons.battle_elixir,
-          guardian_elixir:    cons.guardian_elixir,
-          food:               cons.food,
-          weapon_oil:         cons.weapon_oil,
-          weapon_stone:       cons.weapon_stone,
-          haste_potion:       cons.haste_potion,
-          destruction_potion: cons.destruction_potion,
-          mana_potion:        cons.mana_potion,
-        } : null;
+      const cScore = fakePlayer ? calcScore(fakePlayer, DEFAULT_MANDATORY) : null;
+      const cMax   = fakePlayer ? calcMax(fakePlayer,   DEFAULT_MANDATORY) : null;
 
-        const cScore = fakePlayer ? calcScore(fakePlayer, DEFAULT_MANDATORY) : null;
-        const cMax   = fakePlayer ? calcMax(fakePlayer,   DEFAULT_MANDATORY) : null;
-
-        await sql`
-          INSERT INTO player_lookup_bosses (
-            player_id, zone_id, zone_name, encounter_id, boss_name, report_code, best_spec,
-            rank_percent, median_percent, best_amount, total_kills, fastest_kill,
-            flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone,
-            haste_potion, destruction_potion, mana_potion, healthstone,
-            consume_score, consume_max
-          ) VALUES (
-            ${playerId}, ${zone.id}, ${zone.name}, ${enc.id}, ${enc.name},
-            ${repInfo?.reportCode ?? null}, ${bossSpec},
-            ${ranking.rankPercent}, ${ranking.medianPercent},
-            ${ranking.bestAmount},  ${ranking.totalKills}, ${ranking.fastestKill},
-            ${cons?.flask            ?? null}, ${cons?.battle_elixir   ?? null},
-            ${cons?.guardian_elixir  ?? null}, ${cons?.food            ?? null},
-            ${cons?.weapon_oil       ?? null}, ${cons?.weapon_stone     ?? null},
-            ${cons?.haste_potion       ?? 0}, ${cons?.destruction_potion ?? 0},
-            ${cons?.mana_potion        ?? 0}, ${cons?.healthstone        ?? 0},
-            ${cScore}, ${cMax}
-          )
-          ON CONFLICT (player_id, encounter_id) DO UPDATE SET
-            report_code        = EXCLUDED.report_code,
-            best_spec          = EXCLUDED.best_spec,
-            rank_percent       = EXCLUDED.rank_percent,
-            median_percent     = EXCLUDED.median_percent,
-            best_amount        = EXCLUDED.best_amount,
-            total_kills        = EXCLUDED.total_kills,
-            fastest_kill       = EXCLUDED.fastest_kill,
-            flask              = EXCLUDED.flask,
-            battle_elixir      = EXCLUDED.battle_elixir,
-            guardian_elixir    = EXCLUDED.guardian_elixir,
-            food               = EXCLUDED.food,
-            weapon_oil         = EXCLUDED.weapon_oil,
-            weapon_stone       = EXCLUDED.weapon_stone,
-            haste_potion       = EXCLUDED.haste_potion,
-            destruction_potion = EXCLUDED.destruction_potion,
-            mana_potion        = EXCLUDED.mana_potion,
-            healthstone        = EXCLUDED.healthstone,
-            consume_score      = EXCLUDED.consume_score,
-            consume_max        = EXCLUDED.consume_max
-        `;
-      }
+      await sql`
+        INSERT INTO player_lookup_bosses (
+          player_id, zone_id, zone_name, encounter_id, boss_name, report_code, best_spec,
+          rank_percent, median_percent, best_amount, total_kills, fastest_kill,
+          flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone,
+          haste_potion, destruction_potion, mana_potion, healthstone,
+          consume_score, consume_max
+        ) VALUES (
+          ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.worldId}, ${enc.bossName},
+          ${ranking?.reportCode ?? null}, ${ranking?.bestSpec ?? null},
+          ${ranking?.rankPercent ?? null}, ${ranking?.medianPercent ?? null},
+          ${ranking?.bestAmount  ?? null}, ${ranking?.totalKills    ?? 0},
+          ${ranking?.fastestKill ?? null},
+          ${cons?.flask            ?? null}, ${cons?.battle_elixir   ?? null},
+          ${cons?.guardian_elixir  ?? null}, ${cons?.food            ?? null},
+          ${cons?.weapon_oil       ?? null}, ${cons?.weapon_stone     ?? null},
+          ${cons?.haste_potion       ?? 0}, ${cons?.destruction_potion ?? 0},
+          ${cons?.mana_potion        ?? 0}, ${cons?.healthstone        ?? 0},
+          ${cScore}, ${cMax}
+        )
+        ON CONFLICT (player_id, encounter_id) DO UPDATE SET
+          report_code = EXCLUDED.report_code, best_spec = EXCLUDED.best_spec,
+          rank_percent = EXCLUDED.rank_percent, median_percent = EXCLUDED.median_percent,
+          best_amount = EXCLUDED.best_amount, total_kills = EXCLUDED.total_kills,
+          fastest_kill = EXCLUDED.fastest_kill,
+          flask = EXCLUDED.flask, battle_elixir = EXCLUDED.battle_elixir,
+          guardian_elixir = EXCLUDED.guardian_elixir, food = EXCLUDED.food,
+          weapon_oil = EXCLUDED.weapon_oil, weapon_stone = EXCLUDED.weapon_stone,
+          haste_potion = EXCLUDED.haste_potion, destruction_potion = EXCLUDED.destruction_potion,
+          mana_potion = EXCLUDED.mana_potion, healthstone = EXCLUDED.healthstone,
+          consume_score = EXCLUDED.consume_score, consume_max = EXCLUDED.consume_max
+      `;
     }
 
-    // ── 6. Mark done ──────────────────────────────────────────────────────
     await sql`
       UPDATE player_lookup_profiles
       SET fetch_status = 'done', fetched_at = now()
