@@ -319,7 +319,7 @@ function ZoneSection({ zone, defaultOpen = false }) {
 
   // Zone-level summary stats
   const withKills = zone.bosses.filter(b => b.totalKills > 0);
-  const withCons  = zone.bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
+  const withCons  = zone.bosses.filter(b => b.flask !== null || b.battleElixir !== null);
   const kills     = withKills.length;
   const avgRank   = kills
     ? Math.round(withKills.reduce((s, b) => s + (b.rankPercent ?? 0), 0) / kills)
@@ -327,7 +327,12 @@ function ZoneSection({ zone, defaultOpen = false }) {
   const consRate  = withCons.length
     ? Math.round(withCons.reduce((s, b) => s + (b.consumeScore / b.consumeMax) * 100, 0) / withCons.length)
     : null;
-  const fullCount = withCons.filter(b => b.consumeScore === b.consumeMax).length;
+  // "Full consumes" = flask/elixir + guardian + food only (pre-fight buffs)
+  const fullCount = withCons.filter(b =>
+    (b.flask || b.battleElixir) &&
+    (b.flask || b.guardianElixir) &&
+    b.food
+  ).length;
 
   const th = (label, center) => (
     <th key={label} style={{ textAlign: center ? 'center' : 'left', whiteSpace: 'nowrap', fontSize: '.75rem', color: '#555', textTransform: 'uppercase', letterSpacing: '.04em', padding: '.5rem .6rem' }}>
