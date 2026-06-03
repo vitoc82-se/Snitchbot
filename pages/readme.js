@@ -81,6 +81,10 @@ const API_ROUTES = [
   { route: '/api/players/[name]',   method: 'GET',      auth: 'JWT',      desc: 'Full raid-by-raid history for a single player.' },
   { route: '/api/settings/buffs',   method: 'GET',      auth: 'JWT',      desc: 'Get mandatory buff settings (or DEFAULT_MANDATORY if unset).' },
   { route: '/api/settings/buffs',   method: 'POST',     auth: 'JWT',      desc: 'Save mandatory buff settings for the current user.' },
+  { route: '/api/lookup',           method: 'GET',      auth: 'None',     desc: 'Get cached player profile + boss data (?name=X&server=Y&region=Z). Returns fetch_status.' },
+  { route: '/api/lookup/fetch',     method: 'POST',     auth: 'None',     desc: 'Trigger fresh WCL lookup for a player. Creates/updates player_lookup_profiles + bosses.' },
+  { route: '/api/suggestions/submit', method: 'POST',  auth: 'None',     desc: 'Submit a new consumable suggestion.' },
+  { route: '/api/suggestions',      method: 'GET',      auth: 'Password', desc: 'List all suggestions (admin only).' },
   { route: '/api/debug_gear',       method: 'GET',      auth: 'None',     desc: 'Show weapon enchant IDs from a log (?code=XXX). Dev tool.' },
   { route: '/api/debug_potions',    method: 'GET',      auth: 'None',     desc: 'Show potion cast events from a log (?code=XXX). Dev tool.' },
   { route: '/api/debug_timestamps', method: 'GET',      auth: 'None',     desc: 'Show fight timestamps from a log (?code=XXX). Dev tool.' },
@@ -260,7 +264,7 @@ function HowItWorks() {
 
         <h3 className="readme-h3">What you see</h3>
         <ul>
-          <li><strong>Combined Rating</strong> — a single Legendary / Epic / Rare / Uncommon / Common badge. Weighted 60% WCL rank % + 40% consumable compliance rate.</li>
+          <li><strong>Combined Rating</strong> — a single Legendary / Epic / Rare / Uncommon / Common badge. Weighted 50% WCL rank % + 30% enchant score + 20% consumable compliance.</li>
           <li><strong>Per-zone collapsible tables</strong> — Karazhan, Gruul/Mag, SSC/TK (and more as content unlocks). Click a zone to expand the full boss breakdown.</li>
           <li><strong>Per-boss data</strong> — Best %, Median %, Best DPS/HPS, Kill count, Fastest kill, and every consumable column (Flask, Elixirs, Food, Weapon, Pot) based on the player's best logged kill for that boss.</li>
         </ul>
@@ -544,9 +548,8 @@ function Development() {
         </div>
 
         <p style={{ color: '#666', fontSize: '.82rem', marginTop: '.75rem' }}>
-          There is no local git repository. Deployments go directly to GitHub via the REST API using Python scripts.
-          Both sites (live + preview) are separate Vercel projects pointing at separate GitHub repos,
-          but share the same Neon database.
+          There is no local git repository. Deployments go directly to GitHub via the REST API using <code>push_all.py</code>.
+          One Vercel project auto-builds from <code>vitoc82-se/Snitchbot</code> on every push.
         </p>
       </Section>
 
@@ -562,7 +565,7 @@ function Development() {
               <tr><td>Cache</td><td>Upstash Redis (HTTP pipeline)</td><td className="readme-note">Admin stats only. Not a Redis client lib — HTTP only.</td></tr>
               <tr><td>WCL data</td><td>Warcraft Logs GraphQL API v2</td><td className="readme-note">CombatantInfo + Cast events. Client credentials OAuth.</td></tr>
               <tr><td>Styling</td><td>Single global CSS file</td><td className="readme-note">Dark WoW theme. Managed remotely via push scripts.</td></tr>
-              <tr><td>Deploy</td><td>Python scripts (GitHub Git Tree API)</td><td className="readme-note">push_all.py → vitoc82-se/Snitchbot → snitchbot.app (single production site)</td></tr>
+              <tr><td>Deploy</td><td>Python scripts (GitHub Git Tree API)</td><td className="readme-note">push_all.py → vitoc82-se/Snitchbot → snitchbot.app. No local git repo.</td></tr>
             </tbody>
           </table>
         </div>
@@ -578,7 +581,8 @@ function Development() {
 │   ├── constants.js      ← All magic IDs + UI column/class definitions
 │   ├── scoring.js        ← score(), maxScore(), isPrepared(), missingList()
 │   ├── db.js             ← Neon Postgres client (sql tagged template)
-│   └── redis.js          ← Upstash Redis HTTP client (admin only)
+│   ├── redis.js          ← Upstash Redis HTTP client (admin only)
+│   └── wcl.js            ← WCL GraphQL API clients (retail + fresh endpoints)
 ├── components/
 │   ├── SnitchbotApp.jsx  ← Main app: all state, layout, orchestration
 │   ├── PlayerTable.jsx   ← Class-grouped table with score badges
@@ -591,6 +595,9 @@ function Development() {
 │   ├── readme.js             ← This documentation page (/readme)
 │   ├── admin.js              ← Admin panel (/admin), password-protected
 │   ├── settings.js           ← Mandatory buff settings (/settings)
+│   ├── suggest.js            ← Suggest a consumable (/suggest)
+│   ├── lookup/
+│   │   └── index.js          ← Player lookup (/lookup?name=X&server=Y&region=Z)
 │   ├── dashboard/
 │   │   ├── index.js          ← Saved reports + player roster (/dashboard)
 │   │   └── players/[name].js ← Per-player raid history
@@ -601,24 +608,31 @@ function Development() {
 │       ├── auth/[...nextauth].js
 │       ├── reports/save.js    ← POST save
 │       ├── reports/index.js   ← GET list
-│       ├── reports/[id].js    ← GET single + DELETE
+│       ├── reports/[id].js    ← GET single + DELETE + re-analyze
 │       ├── players/index.js   ← GET roster (aggregated from reports JSON)
 │       ├── players/[name].js  ← GET per-player history
 │       ├── settings/buffs.js  ← GET/POST mandatory settings
+│       ├── lookup/
+│       │   ├── index.js       ← GET cached player profile + boss data
+│       │   └── fetch.js       ← POST trigger fresh WCL fetch for a player
+│       ├── suggestions/
+│       │   ├── index.js       ← GET all suggestions (admin only)
+│       │   └── submit.js      ← POST new suggestion
 │       ├── debug_gear.js      ← Dev: show weapon enchant IDs (?code=XXX)
 │       ├── debug_potions.js   ← Dev: show potion cast events
+│       ├── debug_auras.js     ← Dev: show CombatantInfo aura IDs
 │       └── debug_timestamps.js← Dev: show fight timestamps
 └── styles/
     └── globals.css       ← All CSS. Lives in GitHub only (no local copy).
 
-push_all.py       ← Deploy src/ → vitoc82-se/Snitchbot (LIVE — snitchbot.app)
+push_all.py       ← Deploy src/ → vitoc82-se/Snitchbot (snitchbot.app)
 DEVELOPMENT.md    ← This content as a local markdown file`}</CodeBlock>
       </Section>
 
       <Section title="Database Schema">
         <p style={{ color: '#888', fontSize: '.88rem', marginBottom: '.75rem' }}>
-          Three tables in Neon Postgres. All IDs are UUID generated by Postgres.
-          The preview and live sites share the same database — schema changes affect both immediately.
+          Five tables in Neon Postgres. All IDs are UUID generated by Postgres.
+          The first three are created on first use by the app; the player lookup tables are auto-migrated by <code>/api/lookup/fetch.js</code> on first call.
         </p>
         <CodeBlock>{`-- Created automatically by NextAuth signIn callback
 CREATE TABLE users (
@@ -646,6 +660,36 @@ CREATE TABLE user_settings (
   user_id    UUID PRIMARY KEY REFERENCES users(id),
   mandatory  JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Player lookup cache (auto-created by /api/lookup/fetch.js)
+CREATE TABLE player_lookup_profiles (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          TEXT NOT NULL,
+  server_slug   TEXT NOT NULL,
+  server_region TEXT NOT NULL,
+  class_name    TEXT, role TEXT, guild_name TEXT,
+  fetch_status  TEXT NOT NULL DEFAULT 'pending', -- pending|fetching|done|error
+  fetched_at    TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(name, server_slug, server_region)        -- 24h TTL via fetched_at
+);
+
+-- Per-boss stats for each looked-up player
+CREATE TABLE player_lookup_bosses (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id     UUID NOT NULL REFERENCES player_lookup_profiles(id) ON DELETE CASCADE,
+  zone_id INT, encounter_id INT NOT NULL, boss_name TEXT NOT NULL,
+  rank_percent NUMERIC(5,2), median_percent NUMERIC(5,2),
+  best_amount NUMERIC(10,2), total_kills INT DEFAULT 0, fastest_kill INT,
+  flask BOOLEAN, battle_elixir BOOLEAN, guardian_elixir BOOLEAN,
+  food BOOLEAN, weapon_oil BOOLEAN, weapon_stone BOOLEAN,
+  haste_potion INT, destruction_potion INT, mana_potion INT, healthstone INT,
+  consume_score INT, consume_max INT,
+  enchant_mainhand BOOLEAN, enchant_head BOOLEAN, enchant_shoulder BOOLEAN,
+  enchant_chest BOOLEAN, enchant_legs BOOLEAN, enchant_bracer BOOLEAN,
+  enchant_gloves BOOLEAN, enchant_score INT,
+  UNIQUE(player_id, encounter_id)
 );`}</CodeBlock>
 
         <p style={{ color: '#666', fontSize: '.82rem', marginTop: '.75rem' }}>
@@ -920,10 +964,11 @@ export function weaponBuffType(player)`}</CodeBlock>
         <div className="dev-pipeline">
           <PipelineStep num="1" title="Edit files locally">
             All source files are in <code>C:\Users\freem\Guidevision.eu\src\</code>.
+            There is no local git — never run git commands here.
           </PipelineStep>
           <PipelineStep num="2" title="Deploy">
-            <code>python push_all.py</code> — creates an atomic commit on <code>vitoc82-se/Snitchbot</code> (main branch).
-            Vercel auto-builds from that SHA. Usually live in 60–90 seconds.
+            <code>python push_all.py</code> — reads local files, creates an atomic commit on <code>vitoc82-se/Snitchbot</code> (main branch) via the GitHub REST API.
+            Vercel picks up the push and auto-builds. Usually live in 60–90 seconds.
           </PipelineStep>
           <PipelineStep num="3" title="Verify">
             Visit <code>https://snitchbot.app</code>. Test the golden path: paste a log, check table, open panel, save report, check dashboard.
