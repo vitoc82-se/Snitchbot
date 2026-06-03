@@ -524,7 +524,7 @@ function ZoneSection({ zone, defaultOpen = false }) {
 }
 
 function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
-  const zones = groupByZone(bosses);
+  const zones = groupByZone(bosses).reverse();
   const withKills = bosses.filter(b => b.totalKills > 0);
   const withCons  = bosses.filter(b => b.consumeScore != null);
 
