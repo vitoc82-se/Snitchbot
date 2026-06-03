@@ -120,9 +120,9 @@ function ConsumeTick({ val, na }) {
 const REGIONS = ['EU', 'US', 'KR', 'TW'];
 const KNOWN_SERVERS = [
   { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
-  { label: 'Crusader Strike — US', slug: 'crusader-strike', region: 'US' },
-  { label: 'Wild Growth — US',  slug: 'wild-growth',     region: 'US' },
-  { label: 'Lone Wolf — US',    slug: 'lone-wolf',        region: 'US' },
+  { label: 'Spineshatter — EU',  slug: 'spineshatter',   region: 'EU' },
+  { label: 'Nightslayer — US',   slug: 'nightslayer',    region: 'US' },
+  { label: 'Dreamscythe — US',   slug: 'dreamscythe',    region: 'US' },
   { label: 'Other (enter below)', slug: '__custom',       region: 'EU' },
 ];
 
