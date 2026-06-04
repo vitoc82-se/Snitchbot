@@ -403,7 +403,7 @@ export default async function handler(req, res) {
           return [
             `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
             `ca_${b.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
-            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, filterExpression: "ability.id = 25584") { data }`,
+            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, abilityID: 25584, limit: 10000) { data }`,
           ];
         }).join('\n');
 

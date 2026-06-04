@@ -213,7 +213,7 @@ export default async function handler(req, res) {
           query Q4($code: String!, $start: Float!, $end: Float!) {
             reportData { report(code: $code) {
               events(dataType: Buffs, startTime: $start, endTime: $end, limit: 10000,
-                     filterExpression: "ability.id = 25584") {
+                     abilityID: 25584, limit: 10000) {
                 data nextPageTimestamp
               }
             }}
