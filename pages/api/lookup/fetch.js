@@ -403,6 +403,7 @@ export default async function handler(req, res) {
           return [
             `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
             `ca_${b.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
+            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, filterExpression: "ability.id = 25584") { data }`,
           ];
         }).join('\n');
 
@@ -427,8 +428,17 @@ export default async function handler(req, res) {
         for (const boss of bosses) {
           const ciEvents = report[`ci_${boss.encId}`]?.data || [];
           const caEvents = report[`ca_${boss.encId}`]?.data || [];
+          const wfEvents = report[`wf_${boss.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
-          if (parsed) consumableMap[boss.encId] = parsed.result;
+          if (parsed) {
+            // Check WF buff apply events for this player (WF fires as ApplyBuff, not Cast)
+            if (!parsed.result.windfury && wfEvents.some(e =>
+              e.type === 'applybuff' && String(e.targetID) === String(parsed.sourceId)
+            )) {
+              parsed.result.windfury = true;
+            }
+            consumableMap[boss.encId] = parsed.result;
+          }
         }
       })
     );

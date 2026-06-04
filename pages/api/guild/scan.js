@@ -254,6 +254,7 @@ export default async function handler(req, res) {
         return [
           `ci_${encId}: events(dataType: CombatantInfo, startTime: ${fw.fightStart}, endTime: ${fw.fightEnd}) { data }`,
           `ca_${encId}: events(dataType: Casts, startTime: ${prePot}, endTime: ${fw.fightEnd}) { data }`,
+          `wf_${encId}: events(dataType: Buffs, startTime: ${fw.fightStart}, endTime: ${fw.fightEnd}, filterExpression: "ability.id = 25584") { data }`,
         ];
       }).join('\n');
 
@@ -292,6 +293,7 @@ export default async function handler(req, res) {
         for (const encId of playerEncIds) {
           const ciEvents = report[`ci_${encId}`]?.data || [];
           const caEvents = report[`ca_${encId}`]?.data || [];
+          const wfEvents = report[`wf_${encId}`]?.data || [];
           const myEvent  = ciEvents.find(e => String(e.sourceID) === String(sourceId));
 
           const result = {
@@ -327,7 +329,12 @@ export default async function handler(req, res) {
             if (String(cast.sourceID) !== String(sourceId)) continue;
             const cat = POTION_CAST_IDS[cast.abilityGameID];
             if (cat && typeof result[cat] === 'number') result[cat]++;
-            if (WF_PROC_IDS.has(cast.abilityGameID)) result.windfury = true;
+          }
+          // WF fires as ApplyBuff (not Cast) — check Buffs events for this player
+          if (!result.windfury && wfEvents.some(e =>
+            e.type === 'applybuff' && String(e.targetID) === String(sourceId)
+          )) {
+            result.windfury = true;
           }
 
           consumableMap[`${pName}:${encId}`] = result;
