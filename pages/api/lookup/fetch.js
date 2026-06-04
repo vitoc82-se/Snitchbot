@@ -392,6 +392,8 @@ export default async function handler(req, res) {
         // WF proc confirms Windfury Totem was active in-combat for this player
         if (WF_PROC_IDS.has(cast.abilityGameID)) result.windfury = true;
       }
+      // WF satisfies the melee weapon buff requirement — persist via weapon_stone
+      if (result.windfury) result.weapon_stone = true;
       return { result, sourceId };
     }
 
@@ -440,7 +442,7 @@ export default async function handler(req, res) {
                  (actorMap[e.targetID] || '').toLowerCase() === cleanNameLower)
               );
               console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | hasWF=${hasWF} | parsedWF=${parsed.result.windfury}`);
-              if (hasWF) parsed.result.windfury = true;
+              if (hasWF) { parsed.result.windfury = true; parsed.result.weapon_stone = true; }
             }
             consumableMap[boss.encId] = parsed.result;
           }
