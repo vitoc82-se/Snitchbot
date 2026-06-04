@@ -330,9 +330,12 @@ export default async function handler(req, res) {
             const cat = POTION_CAST_IDS[cast.abilityGameID];
             if (cat && typeof result[cat] === 'number') result[cat]++;
           }
-          // WF fires as ApplyBuff (not Cast) — check Buffs events for this player
+          // WF fires as ApplyBuff — sourceID = player (WCL source=player for WF Attack)
           if (!result.windfury && wfEvents.some(e =>
-            e.type === 'applybuff' && String(e.targetID) === String(sourceId)
+            e.type === 'applybuff' && (
+              String(e.sourceID) === String(sourceId) ||
+              String(e.targetID) === String(sourceId)
+            )
           )) {
             result.windfury = true;
           }

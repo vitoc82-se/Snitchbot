@@ -224,7 +224,11 @@ export default async function handler(req, res) {
         (wfBlock?.data || []).forEach(e => {
           if (e.type !== 'applybuff') return;
           const fight = fights.find(f => e.timestamp >= f.startTime && e.timestamp <= f.endTime);
-          if (fight) wfByFight[fight.id].add(e.targetID);
+          // sourceID = the player (WCL shows source=player for WF Attack aura)
+          if (fight) {
+            wfByFight[fight.id].add(e.sourceID);
+            if (e.targetID) wfByFight[fight.id].add(e.targetID); // also check target as fallback
+          }
         });
         wfPage = wfBlock?.nextPageTimestamp ?? null;
       }

@@ -431,9 +431,12 @@ export default async function handler(req, res) {
           const wfEvents = report[`wf_${boss.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
           if (parsed) {
-            // Check WF buff apply events for this player (WF fires as ApplyBuff, not Cast)
+            // Check WF buff apply events — sourceID is the player (WCL shows source=player for WF Attack)
             if (!parsed.result.windfury && wfEvents.some(e =>
-              e.type === 'applybuff' && String(e.targetID) === String(parsed.sourceId)
+              e.type === 'applybuff' &&
+              (e.abilityGameID === 25584 || !e.abilityGameID) && // client-side safety filter
+              (String(e.sourceID) === String(parsed.sourceId) ||
+               String(e.targetID) === String(parsed.sourceId))
             )) {
               parsed.result.windfury = true;
             }
