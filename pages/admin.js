@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 
-const STATUS_COLORS = { pending: '#f5c842', added: '#7ec87e', rejected: '#e05c5c' };
+const STATUS_COLORS = { pending: '#f5c842', added: '#5aad6f', rejected: '#c45a4a' };
 const SETTING_LABELS = {
   flask:    'Flask / Battle Elixir',
   guardian: 'Guardian Elixir / Flask',
@@ -33,7 +33,7 @@ function StatCard({ number, label, sub, color }) {
     <div className="admin-stat-card">
       <div className="admin-stat-number" style={color ? { color } : {}}>{number ?? '—'}</div>
       <div className="admin-stat-label">{label}</div>
-      {sub && <div style={{ color: '#555', fontSize: '.75rem', marginTop: '.2rem' }}>{sub}</div>}
+      {sub && <div style={{ color: '#6a5c44', fontSize: '.75rem', marginTop: '.2rem' }}>{sub}</div>}
     </div>
   );
 }
@@ -42,7 +42,7 @@ function SectionTitle({ children, sub }) {
   return (
     <div style={{ marginTop: '2.5rem', marginBottom: '.75rem' }}>
       <h3 className="pot-leaderboard-title" style={{ margin: 0 }}>{children}</h3>
-      {sub && <p style={{ color: '#555', fontSize: '.82rem', margin: '.2rem 0 0' }}>{sub}</p>}
+      {sub && <p style={{ color: '#6a5c44', fontSize: '.82rem', margin: '.2rem 0 0' }}>{sub}</p>}
     </div>
   );
 }
@@ -109,8 +109,8 @@ export default function AdminPage() {
             </div>
 
             <div className="admin-stats-row" style={{ marginTop: '.75rem' }}>
-              <StatCard number={db?.newUsers7d}           label="New Users (7d)"        color={db?.newUsers7d  > 0 ? '#4caf50' : '#888'} />
-              <StatCard number={db?.newUsers30d}          label="New Users (30d)"       color={db?.newUsers30d > 0 ? '#4caf50' : '#888'} />
+              <StatCard number={db?.newUsers7d}           label="New Users (7d)"        color={db?.newUsers7d  > 0 ? '#5aad6f' : '#8a7a60'} />
+              <StatCard number={db?.newUsers30d}          label="New Users (30d)"       color={db?.newUsers30d > 0 ? '#5aad6f' : '#8a7a60'} />
               <StatCard number={db?.totalBossesTracked}   label="Boss Encounters Saved" />
               <StatCard
                 number={db?.avgBossesPerReport > 0 ? db.avgBossesPerReport.toFixed(1) : '—'}
@@ -121,8 +121,8 @@ export default function AdminPage() {
 
             <div className="admin-stats-row" style={{ marginTop: '.75rem' }}>
               <StatCard number={db?.lookupTotal}   label="Players Looked Up"    sub="all time" color="#a335ee" />
-              <StatCard number={db?.lookupLast7d}  label="Lookups (7d)"         color={db?.lookupLast7d > 0 ? '#4caf50' : '#888'} />
-              <StatCard number={db?.lookupErrors}  label="Lookup Errors"        color={db?.lookupErrors > 0 ? '#e05555' : '#888'} />
+              <StatCard number={db?.lookupLast7d}  label="Lookups (7d)"         color={db?.lookupLast7d > 0 ? '#5aad6f' : '#8a7a60'} />
+              <StatCard number={db?.lookupErrors}  label="Lookup Errors"        color={db?.lookupErrors > 0 ? '#c45a4a' : '#8a7a60'} />
             </div>
 
             {/* ── Recent player lookups ─────────────────────────────────── */}
@@ -149,12 +149,12 @@ export default function AdminPage() {
                               {r.name}
                             </a>
                           </td>
-                          <td style={{ color: '#888', fontSize: '.82rem' }}>
+                          <td style={{ color: '#8a7a60', fontSize: '.82rem' }}>
                             {r.className}{r.role && ` · ${r.role}`}
                           </td>
-                          <td style={{ color: '#666', fontSize: '.82rem' }}>{r.guild || '—'}</td>
-                          <td style={{ color: '#555', fontSize: '.82rem' }}>{r.server} ({r.region})</td>
-                          <td style={{ color: '#555', fontSize: '.82rem' }}>
+                          <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>{r.guild || '—'}</td>
+                          <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>{r.server} ({r.region})</td>
+                          <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>
                             {r.fetchedAt ? new Date(r.fetchedAt).toLocaleDateString() : '—'}
                           </td>
                         </tr>
@@ -194,7 +194,7 @@ export default function AdminPage() {
                     const pots     = s ? s.pots     !== false : true;
                     const weapon   = s ? !!s.weapon          : false;
                     const tick = v => (
-                      <span style={{ color: v ? '#4caf50' : '#444' }}>{v ? '✓' : '✗'}</span>
+                      <span style={{ color: v ? '#5aad6f' : '#4a3e2c' }}>{v ? '✓' : '✗'}</span>
                     );
                     return (
                       <tr key={i}>
@@ -211,13 +211,13 @@ export default function AdminPage() {
                           </div>
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span style={{ color: u.reportCount > 0 ? '#4caf50' : '#555', fontWeight: 'bold' }}>
+                          <span style={{ color: u.reportCount > 0 ? '#5aad6f' : '#6a5c44', fontWeight: 'bold' }}>
                             {u.reportCount}
                           </span>
                         </td>
-                        <td style={{ color: '#666', fontSize: '.82rem' }}>{fmt(u.joinedAt)}</td>
-                        <td style={{ color: '#666', fontSize: '.82rem' }}>
-                          {u.lastReportAt ? ago(u.lastReportAt) : <span style={{ color: '#444' }}>No reports</span>}
+                        <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>{fmt(u.joinedAt)}</td>
+                        <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>
+                          {u.lastReportAt ? ago(u.lastReportAt) : <span style={{ color: '#4a3e2c' }}>No reports</span>}
                         </td>
                         <td style={{ textAlign: 'center' }}>{tick(flask)}</td>
                         <td style={{ textAlign: 'center' }}>{tick(guardian)}</td>
@@ -252,14 +252,14 @@ export default function AdminPage() {
                     return (
                       <tr key={key}>
                         <td style={{ color: '#ccc' }}>{label}</td>
-                        <td style={{ textAlign: 'center', color: pct > 50 ? '#4caf50' : '#888' }}>
-                          {count}/{total} <span style={{ color: '#555', fontSize: '.8rem' }}>({pct}%)</span>
+                        <td style={{ textAlign: 'center', color: pct > 50 ? '#5aad6f' : '#8a7a60' }}>
+                          {count}/{total} <span style={{ color: '#6a5c44', fontSize: '.8rem' }}>({pct}%)</span>
                         </td>
                         <td>
                           <div style={{ background: '#1a1a1a', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                             <div style={{
                               width: `${pct}%`, height: '100%', borderRadius: 4,
-                              background: pct >= 80 ? '#4caf50' : pct >= 40 ? '#f5c842' : '#e05555',
+                              background: pct >= 80 ? '#5aad6f' : pct >= 40 ? '#f5c842' : '#c45a4a',
                               transition: 'width .3s',
                             }} />
                           </div>
@@ -290,16 +290,16 @@ export default function AdminPage() {
                   {(db?.bossList || []).slice(0, bossLimit).map((b, i) => (
                     <tr key={b.name}>
                       <td style={{ color: '#ddd' }}>{b.name}</td>
-                      <td style={{ textAlign: 'center', color: '#888' }}>{b.seen}</td>
-                      <td style={{ textAlign: 'center', color: b.kills > 0 ? '#4caf50' : '#555' }}>{b.kills}</td>
-                      <td style={{ textAlign: 'center', color: b.killRate >= 80 ? '#4caf50' : b.killRate >= 40 ? '#f5c842' : '#e05555', fontWeight: 'bold' }}>
+                      <td style={{ textAlign: 'center', color: '#8a7a60' }}>{b.seen}</td>
+                      <td style={{ textAlign: 'center', color: b.kills > 0 ? '#5aad6f' : '#6a5c44' }}>{b.kills}</td>
+                      <td style={{ textAlign: 'center', color: b.killRate >= 80 ? '#5aad6f' : b.killRate >= 40 ? '#f5c842' : '#c45a4a', fontWeight: 'bold' }}>
                         {b.killRate}%
                       </td>
                       <td>
                         <div style={{ background: '#1a1a1a', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                           <div style={{
                             width: `${b.killRate}%`, height: '100%', borderRadius: 4,
-                            background: b.killRate >= 80 ? '#4caf50' : b.killRate >= 40 ? '#f5c842' : '#e05555',
+                            background: b.killRate >= 80 ? '#5aad6f' : b.killRate >= 40 ? '#f5c842' : '#c45a4a',
                           }} />
                         </div>
                       </td>
@@ -311,7 +311,7 @@ export default function AdminPage() {
             {(db?.bossList?.length || 0) > bossLimit && (
               <button
                 className="subtle-link"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '.82rem', marginTop: '.5rem' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a7a60', fontSize: '.82rem', marginTop: '.5rem' }}
                 onClick={() => setBossLimit(l => l + 10)}>
                 Show more ({db.bossList.length - bossLimit} remaining)
               </button>
@@ -342,10 +342,10 @@ export default function AdminPage() {
                           {r.code}
                         </a>
                       </td>
-                      <td style={{ color: '#888', fontSize: '.82rem' }}>
+                      <td style={{ color: '#8a7a60', fontSize: '.82rem' }}>
                         {new Date(r.ts).toISOString().replace('T', ' ').slice(0, 19)}
                       </td>
-                      <td style={{ color: '#555', fontSize: '.82rem', fontFamily: 'monospace' }}>
+                      <td style={{ color: '#6a5c44', fontSize: '.82rem', fontFamily: 'monospace' }}>
                         {r.ip}
                       </td>
                     </tr>
@@ -357,7 +357,7 @@ export default function AdminPage() {
             {/* ── Suggestions ───────────────────────────────────────────── */}
             <SectionTitle>Consumable Suggestions — {suggestions.length} total</SectionTitle>
             {suggestions.length === 0 ? (
-              <p style={{ color: '#555', fontSize: '.85rem' }}>No suggestions yet.</p>
+              <p style={{ color: '#6a5c44', fontSize: '.85rem' }}>No suggestions yet.</p>
             ) : (
               <div style={{ marginTop: '.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {suggestions.map(s => (
@@ -365,10 +365,10 @@ export default function AdminPage() {
                     <div className="suggest-admin-header">
                       <span className="suggest-admin-id">ID: <strong>{s.spell_item_id}</strong></span>
                       {s.category && <span className="suggest-admin-cat">{s.category}</span>}
-                      <span className="suggest-admin-status" style={{ color: STATUS_COLORS[s.status] || '#888' }}>
+                      <span className="suggest-admin-status" style={{ color: STATUS_COLORS[s.status] || '#8a7a60' }}>
                         {s.status}
                       </span>
-                      <span style={{ color: '#555', fontSize: '.78rem', marginLeft: 'auto' }}>
+                      <span style={{ color: '#6a5c44', fontSize: '.78rem', marginLeft: 'auto' }}>
                         {new Date(s.created_at).toISOString().replace('T', ' ').slice(0, 16)} UTC
                         {s.submitted_by && ` · ${s.submitted_by}`}
                       </span>

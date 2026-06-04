@@ -51,7 +51,7 @@ export default function SuggestPage() {
       <div className="container">
         <Link href="/" className="subtle-link" style={{ fontSize: '.85rem' }}>← Back to Snitchbot</Link>
         <h1 style={{ marginTop: '.75rem' }}>Suggest a Consumable</h1>
-        <p style={{ color: '#888', fontSize: '.9rem', marginTop: '.25rem', marginBottom: '1.75rem' }}>
+        <p style={{ color: '#8a7a60', fontSize: '.9rem', marginTop: '.25rem', marginBottom: '1.75rem' }}>
           Think we're missing a spell or item ID? Fill in what you know and we'll look into adding it.
         </p>
 
