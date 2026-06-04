@@ -10,6 +10,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [reports,     setReports]     = useState([]);
   const [players,     setPlayers]     = useState([]);
+  const [guilds,      setGuilds]      = useState([]);
   const [tab,         setTab]         = useState('reports');
   const [sortRole,    setSortRole]    = useState('all');
   const [hoveredId,   setHoveredId]   = useState(null);
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const loadData = () => {
     fetch('/api/reports').then(r => r.json()).then(setReports);
     fetch('/api/players').then(r => r.json()).then(setPlayers);
+    fetch('/api/guild').then(r => r.json()).then(d => setGuilds(d.guilds || []));
   };
 
   useEffect(() => {
@@ -85,6 +87,9 @@ export default function Dashboard() {
           </button>
           <button className={`tab${tab === 'players' ? ' active' : ''}`} onClick={() => setTab('players')}>
             Player Roster <span className="badge badge-wipe">{players.length}</span>
+          </button>
+          <button className={`tab${tab === 'guilds' ? ' active' : ''}`} onClick={() => setTab('guilds')}>
+            Guild Scans <span className="badge badge-wipe">{guilds.length}</span>
           </button>
         </div>
 
@@ -162,6 +167,47 @@ export default function Dashboard() {
                 </tbody>
               </table>
               </>
+            )
+        )}
+
+        {tab === 'guilds' && (
+          guilds.length === 0
+            ? (
+              <p style={{ color: '#666' }}>
+                No guild scans yet. Go to <Link href="/guild" style={{ color: '#f5c842' }}>Guild Lookup</Link> to scan your roster.
+              </p>
+            ) : (
+              <table className="player-table">
+                <thead>
+                  <tr>
+                    <th>Guild</th>
+                    <th>Realm</th>
+                    <th style={{ textAlign: 'center' }}>Members</th>
+                    <th>Last Scanned</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {guilds.map(g => (
+                    <tr key={`${g.guildName}-${g.server}-${g.region}`}>
+                      <td style={{ fontWeight: 600, color: '#f5c842' }}>{g.guildName}</td>
+                      <td style={{ color: '#888', fontSize: '.85rem' }}>{g.server} ({g.region})</td>
+                      <td style={{ textAlign: 'center', color: '#888' }}>{g.memberCount}</td>
+                      <td style={{ color: '#666', fontSize: '.82rem' }}>
+                        {g.fetchedAt ? new Date(g.fetchedAt).toLocaleDateString() : '—'}
+                      </td>
+                      <td>
+                        <Link
+                          href={`/guild?name=${encodeURIComponent(g.guildName)}&server=${encodeURIComponent(g.server)}&region=${encodeURIComponent(g.region)}`}
+                          className="subtle-link"
+                        >
+                          View / Re-scan →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )
         )}
 

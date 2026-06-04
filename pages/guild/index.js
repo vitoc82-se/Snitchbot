@@ -3,9 +3,10 @@
  * Login required. Fetches all guild members from WCL and shows their
  * combined rating, WCL %, enchant score and consumable compliance.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { useSession, signIn } from 'next-auth/react';
 import { classColor } from '../../lib/scoring';
 
@@ -74,7 +75,8 @@ const KNOWN_SERVERS = [
   { label: 'Dreamscythe — US',   slug: 'dreamscythe',   region: 'US' },
 ];
 const REGIONS = ['EU', 'US', 'KR', 'TW'];
-const BATCH_SIZE = 4;
+const BATCH_SIZE  = 2;   // keep WCL API load low to avoid rate limiting
+const BATCH_DELAY = 400; // ms pause between batches
 
 // ── Login gate ────────────────────────────────────────────────────────────────
 
@@ -318,12 +320,22 @@ function MemberRow({ m, server, region }) {
 
 export default function GuildPage() {
   const { data: session, status } = useSession();
+  const router = useRouter();
 
   const [phase,    setPhase]    = useState('idle');   // idle | fetching-roster | scanning | done
   const [members,  setMembers]  = useState([]);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error,    setError]    = useState('');
   const [guildInfo, setGuildInfo] = useState(null);  // { guildName, server, region }
+
+  // Auto-scan if URL params provided (e.g. coming from dashboard "View / Re-scan")
+  useEffect(() => {
+    if (!session || phase !== 'idle') return;
+    const { name, server, region } = router.query;
+    if (name && server && region) {
+      handleSearch({ guildName: name, server, region });
+    }
+  }, [session, router.query]);
 
   const handleSearch = async ({ guildName, server, region }) => {
     setPhase('fetching-roster');
@@ -412,6 +424,8 @@ export default function GuildPage() {
 
       doneCount += batch.length;
       setProgress({ done: doneCount, total: roster.length });
+      // Small pause between batches to avoid WCL rate limits
+      if (i + BATCH_SIZE < roster.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
     }
 
     setPhase('done');

@@ -13,12 +13,32 @@ export default async function handler(req, res) {
   if (!token?.dbId) return res.status(401).json({ error: 'Login required' });
 
   const { name, server, region } = req.query;
-  if (!name || !server || !region) return res.status(400).json({ error: 'name, server, region required' });
-
-  const cleanSlug   = server.trim().toLowerCase();
-  const cleanRegion = region.trim().toUpperCase();
 
   try {
+    // No params → list all guilds for this user (for dashboard)
+    if (!name && !server && !region) {
+      const guilds = await sql`
+        SELECT guild_name, server_slug, server_region, member_names, fetched_at
+        FROM guild_lookup_cache
+        WHERE user_id = ${token.dbId}
+        ORDER BY fetched_at DESC
+      `;
+      return res.json({
+        guilds: guilds.map(g => ({
+          guildName:   g.guild_name,
+          server:      g.server_slug,
+          region:      g.server_region,
+          memberCount: Array.isArray(g.member_names) ? g.member_names.length : 0,
+          fetchedAt:   g.fetched_at,
+        })),
+      });
+    }
+
+    if (!name || !server || !region) return res.status(400).json({ error: 'name, server, region required' });
+
+    const cleanSlug   = server.trim().toLowerCase();
+    const cleanRegion = region.trim().toUpperCase();
+
     const guilds = await sql`
       SELECT * FROM guild_lookup_cache
       WHERE guild_name    = ${name.trim()}
@@ -30,9 +50,8 @@ export default async function handler(req, res) {
     if (!guilds.length) return res.json({ status: 'not_found' });
 
     const guild   = guilds[0];
-    const members = guild.member_names; // JSONB → already parsed by Neon client
+    const members = guild.member_names;
 
-    // Fetch current status for each member
     const memberNames = members.map(m => m.name);
     const profiles = await sql`
       SELECT name, class_name, role, fetch_status, fetched_at
@@ -59,8 +78,7 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    // Table doesn't exist yet
-    if (err.message?.includes('guild_lookup_cache')) return res.json({ status: 'not_found' });
+    if (err.message?.includes('guild_lookup_cache')) return res.json({ guilds: [], status: 'not_found' });
     console.error('[guild/index]', err);
     return res.status(500).json({ error: err.message });
   }

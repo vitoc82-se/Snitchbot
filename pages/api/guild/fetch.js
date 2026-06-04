@@ -27,6 +27,8 @@ async function ensureTable() {
       UNIQUE(guild_name, server_slug, server_region)
     )
   `;
+  // Add user_id column for dashboard association (safe to run repeatedly)
+  await sql`ALTER TABLE guild_lookup_cache ADD COLUMN IF NOT EXISTS user_id UUID`;
 }
 
 export default async function handler(req, res) {
@@ -79,20 +81,26 @@ export default async function handler(req, res) {
 
     if (!members.length) throw new Error(`Guild "${cleanName}" has no members on Warcraft Logs`);
 
-    // Cache the roster
+    // Cache the roster (associate with this user)
     await sql`
-      INSERT INTO guild_lookup_cache (guild_name, server_slug, server_region, member_names, fetched_at)
-      VALUES (${cleanName}, ${cleanSlug}, ${cleanRegion}, ${JSON.stringify(members)}, now())
+      INSERT INTO guild_lookup_cache (guild_name, server_slug, server_region, member_names, fetched_at, user_id)
+      VALUES (${cleanName}, ${cleanSlug}, ${cleanRegion}, ${JSON.stringify(members)}, now(), ${token.dbId})
       ON CONFLICT (guild_name, server_slug, server_region) DO UPDATE
-        SET member_names = EXCLUDED.member_names, fetched_at = now()
+        SET member_names = EXCLUDED.member_names, fetched_at = now(), user_id = EXCLUDED.user_id
     `;
 
-    // Upsert each member as 'pending' — only if not already cached (don't overwrite done/fetching)
+    // Upsert each member — reset errored/stale members to pending so they get re-fetched
     for (const m of members) {
       await sql`
         INSERT INTO player_lookup_profiles (name, server_slug, server_region, class_name, fetch_status)
         VALUES (${m.name}, ${cleanSlug}, ${cleanRegion}, ${m.className}, 'pending')
-        ON CONFLICT (name, server_slug, server_region) DO NOTHING
+        ON CONFLICT (name, server_slug, server_region) DO UPDATE
+          SET fetch_status = CASE
+            WHEN player_lookup_profiles.fetch_status = 'error' THEN 'pending'
+            WHEN player_lookup_profiles.fetch_status = 'done'
+              AND player_lookup_profiles.fetched_at < now() - INTERVAL '7 days' THEN 'pending'
+            ELSE player_lookup_profiles.fetch_status
+          END
       `;
     }
 
