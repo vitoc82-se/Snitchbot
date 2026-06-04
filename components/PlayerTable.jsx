@@ -85,8 +85,11 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                             <Cell value={p.battle_elixir}   na={p.flask} />
                             <Cell value={p.guardian_elixir} na={p.flask} />
                             <Cell value={p.food} />
-                            <Cell value={p.weapon_oil}   na={weaponBuffType(p) !== 'oil'}   />
-                            <Cell value={p.weapon_stone} na={weaponBuffType(p) !== 'stone'} />
+                            <Cell value={p.weapon_oil} na={weaponBuffType(p) !== 'oil'} />
+                            {weaponBuffType(p) === 'stone' && !p.weapon_stone && p.windfury
+                              ? <td className="center"><span style={{ color: '#f5c842', fontWeight: 700, fontSize: '.82rem' }}>WF</span></td>
+                              : <Cell value={p.weapon_stone} na={weaponBuffType(p) !== 'stone'} />
+                            }
                             <Cell value={p.scrolls} na={!p.scrolls} />
                           </>
                         ) : (

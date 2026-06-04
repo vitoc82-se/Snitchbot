@@ -21,7 +21,7 @@ import { getToken as getJWT } from 'next-auth/jwt';
 import {
   PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS,
-  POTION_CAST_IDS, WEAPON_ENCHANT_IDS,
+  POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS, WF_PROC_IDS,
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
@@ -54,6 +54,7 @@ function specToRole(spec) {
 function detectBuff(buffName, buffId, selfApplied) {
   const n = (buffName || '').toLowerCase();
   if (n.includes('well fed') || FOOD_IDS.has(buffId)) return 'food';
+  if (n.includes('windfury') || WF_ENCHANT_IDS.has(buffId)) return 'windfury';
   if (!selfApplied) return null;
   if (n.includes('flask') || FLASK_IDS.has(buffId)) return 'flask';
   if (GUARDIAN_IDS.has(buffId)) return 'guardian_elixir';
@@ -295,7 +296,7 @@ export default async function handler(req, res) {
 
           const result = {
             flask: false, battle_elixir: false, guardian_elixir: false, food: false,
-            weapon_oil: false, weapon_stone: false,
+            weapon_oil: false, weapon_stone: false, windfury: false,
             haste_potion: 0, destruction_potion: 0, mana_potion: 0, healthstone: 0,
             enchant_mainhand: false, enchant_head: false, enchant_shoulder: false,
             enchant_chest: false, enchant_legs: false, enchant_bracer: false,
@@ -311,6 +312,7 @@ export default async function handler(req, res) {
             for (const slot of (myEvent.gear || [])) {
               const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
               if (cat) result[cat] = true;
+              if (WF_ENCHANT_IDS.has(slot.temporaryEnchant)) result.windfury = true;
             }
             const enchants = detectEnchants(myEvent.gear);
             Object.assign(result, {
@@ -325,6 +327,7 @@ export default async function handler(req, res) {
             if (String(cast.sourceID) !== String(sourceId)) continue;
             const cat = POTION_CAST_IDS[cast.abilityGameID];
             if (cat && typeof result[cat] === 'number') result[cat]++;
+            if (WF_PROC_IDS.has(cast.abilityGameID)) result.windfury = true;
           }
 
           consumableMap[`${pName}:${encId}`] = result;

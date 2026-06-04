@@ -1,6 +1,7 @@
 import {
   WCL_TOKEN_URL, WCL_API_URL, PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS, POTION_CAST_IDS, SCROLL_IDS, WEAPON_ENCHANT_IDS,
+  WF_ENCHANT_IDS, WF_PROC_IDS,
 } from '../../lib/constants';
 import { trackAnalysis, redisGet, redisSet } from '../../lib/redis';
 
@@ -11,6 +12,8 @@ function detectBuff(buffName, buffId, selfApplied) {
   // Food is always self-consumed — WCL sometimes omits source, so check before selfApplied gate
   if (n.includes('well fed')) return 'food';
   if (FOOD_IDS.has(buffId))   return 'food';
+  // Windfury comes from a Shaman totem — not self-applied, must check before the selfApplied gate
+  if (n.includes('windfury') || WF_ENCHANT_IDS.has(buffId)) return 'windfury';
   if (!selfApplied) return null;
   if (n.includes('flask'))       return 'flask';
   if (FLASK_IDS.has(buffId))     return 'flask';
@@ -80,7 +83,7 @@ function emptyPlayer(name, cls, role) {
     scrolls: 0,
     haste_potion: 0, destruction_potion: 0,
     mana_potion: 0, healthstone: 0,
-    weapon_oil: false, weapon_stone: false,
+    weapon_oil: false, weapon_stone: false, windfury: false,
   };
 }
 
@@ -169,6 +172,19 @@ export default async function handler(req, res) {
       const evBlock = d3?.reportData?.report?.events;
       (evBlock?.data || []).forEach(e => {
         if (e.type !== 'cast') return;
+
+        // Windfury proc (extra attack) — confirms WF Totem was active for this player in this fight
+        if (WF_PROC_IDS.has(e.abilityGameID)) {
+          const fight = fights.find(f => e.timestamp >= f.startTime && e.timestamp <= f.endTime);
+          if (fight) {
+            const playerName = actorMap[e.sourceID];
+            if (playerName && playerMap[fight.id]?.[playerName]) {
+              playerMap[fight.id][playerName].windfury = true;
+            }
+          }
+          return;
+        }
+
         const cat = POTION_CAST_IDS[e.abilityGameID];
         if (!cat) return;
 
@@ -241,6 +257,8 @@ export default async function handler(req, res) {
         (event.gear || []).forEach(slot => {
           const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
           if (cat) playerMap[playerName][cat] = true;
+          // Windfury Totem shows as a weapon temporaryEnchant when active at pull time
+          if (WF_ENCHANT_IDS.has(slot.temporaryEnchant)) playerMap[playerName].windfury = true;
         });
       });
 
