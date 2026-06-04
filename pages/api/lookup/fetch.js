@@ -428,19 +428,21 @@ export default async function handler(req, res) {
         const sourceId = Object.entries(actorMap)
           .find(([, n]) => n.toLowerCase() === cleanName.toLowerCase())?.[0];
 
-        // WF scan: query only THIS player's buff events — targetID filter keeps it tiny
-        // Fight events are dense (10k+ total) so we must filter by player, not rely on limit
+        // WF scan: filter by target.id = player AND ability.id = 25584
+        // Passed as a GraphQL variable to avoid any quote-escaping issues.
+        // This returns only WF Attack events for this specific player — very small dataset.
         let wfEventsByFight = {}; // encId → boolean
         if (sourceId) {
           try {
+            const wfFilter = `target.id = ${Number(sourceId)} and ability.id = 25584`;
             const wfResult = await wclQuery(`
-              query($code: String!, $tid: Int!) {
+              query($code: String!, $f: String!) {
                 reportData { report(code: $code) {
                   events(dataType: Buffs, startTime: 0, endTime: 9999999999,
-                         targetID: $tid, limit: 10000) { data }
+                         filterExpression: $f, limit: 10000) { data }
                 }}
               }
-            `, { code, tid: Number(sourceId) });
+            `, { code, f: wfFilter });
             const wfAll = (wfResult?.reportData?.report?.events?.data || [])
               .filter(e => e.type === 'applybuff' && e.abilityGameID === 25584);
             for (const boss of bosses) {
