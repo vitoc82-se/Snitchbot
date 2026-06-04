@@ -293,7 +293,7 @@ export default async function handler(req, res) {
     const withKills = Object.values(rankingMap);
     if (withKills.length > 0) {
       const encAliases = withKills.map(e =>
-        `e${e.encId}: encounterRankings(encounterID: ${e.encId}, limit: 100)`
+        `e${e.encId}: encounterRankings(encounterID: ${e.encId})`
       ).join('\n');
       const encResult = await wclFreshQuery(`
         query($name: String!, $serverSlug: String!, $serverRegion: String!) {
