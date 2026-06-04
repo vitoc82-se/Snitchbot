@@ -213,7 +213,7 @@ export default async function handler(req, res) {
     `, { name: cleanName, serverSlug: cleanSlug, serverRegion: cleanRegion });
 
     const char = charResult?.characterData?.character;
-    if (!char) throw new Error(`Player "${cleanName}" not found on Warcraft Logs (${cleanSlug}, ${cleanRegion})`);
+    if (!char) throw new Error(`Player "${cleanName}" not found on Warcraft Logs (${cleanSlug} ${cleanRegion}). If the player exists on WCL, this may be a temporary rate limit — try again in a moment.`);
 
     const className = CLASS_NAMES[char.classID] || 'Unknown';
     const guildName = char.guilds?.[0]?.name || null;
