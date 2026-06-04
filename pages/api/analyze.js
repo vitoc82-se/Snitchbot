@@ -173,14 +173,13 @@ export default async function handler(req, res) {
       (evBlock?.data || []).forEach(e => {
         if (e.type !== 'cast') return;
 
-        // Windfury proc (extra attack) — confirms WF Totem was active for this player in this fight
+        // Windfury Attack proc — confirms WF Totem/Weapon was active for this player in-combat.
+        // Store in fightPotions so it gets merged into playerMap later via Object.assign.
         if (WF_PROC_IDS.has(e.abilityGameID)) {
           const fight = fights.find(f => e.timestamp >= f.startTime && e.timestamp <= f.endTime);
           if (fight) {
-            const playerName = actorMap[e.sourceID];
-            if (playerName && playerMap[fight.id]?.[playerName]) {
-              playerMap[fight.id][playerName].windfury = true;
-            }
+            if (!fightPotions[fight.id][e.sourceID]) fightPotions[fight.id][e.sourceID] = {};
+            fightPotions[fight.id][e.sourceID].windfury = true;
           }
           return;
         }
