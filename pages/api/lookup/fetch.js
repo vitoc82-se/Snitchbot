@@ -562,6 +562,7 @@ export default async function handler(req, res) {
       const foodRate       = rateOf(rates?.food         ?? 0);
       const weaponRate     = rateOf(rates?.weapon       ?? 0);
       const potRate        = rateOf(rates?.pot          ?? 0);
+      console.log(`[INSERT] encId=${enc.encId} total=${rates?.total} weapon=${rates?.weapon} weaponRate=${weaponRate} food=${rates?.food} foodRate=${rateOf(rates?.food ?? 0)}`);
 
       await sql`
         INSERT INTO player_lookup_bosses (
