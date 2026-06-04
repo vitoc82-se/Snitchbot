@@ -192,10 +192,22 @@ export default function SnitchbotApp({ initialCode }) {
           </Link>
 
           <div className="nav-center">
-            <Link href="/lookup"   className="nav-link">Player Lookup</Link>
-            <Link href="/compare"  className="nav-link">Compare</Link>
-            <Link href="/readme"   className="nav-link">How it works</Link>
-            <Link href="/suggest"  className="nav-link">Suggest</Link>
+            <Link href="/lookup"  className="nav-link">Player Lookup</Link>
+            <Link href="/compare" className="nav-link">Compare</Link>
+            {session ? (
+              <Link href="/guild" className="nav-link">Guild Lookup</Link>
+            ) : (
+              <span
+                className="nav-link"
+                onClick={() => signIn('discord')}
+                title="Login required for Guild Lookup"
+                style={{ cursor: 'pointer', opacity: 0.45 }}
+              >
+                Guild Lookup 🔒
+              </span>
+            )}
+            <Link href="/readme"  className="nav-link">How it works</Link>
+            <Link href="/suggest" className="nav-link">Suggest</Link>
           </div>
 
           <div className="nav-user">
