@@ -443,7 +443,7 @@ export default function ComparePage() {
             <span>
               <span style={{ color: '#4c9fd4' }}>■</span> Player A &nbsp;&nbsp;
               <span style={{ color: '#d47c4c' }}>■</span> Player B &nbsp;·&nbsp;
-              Consumes based on best logged kill per boss &nbsp;·&nbsp; <span style={{ color: '#333' }}>—</span> = no kill recorded
+              Consumes based on latest logged kill per boss &nbsp;·&nbsp; <span style={{ color: '#333' }}>—</span> = no kill recorded
             </span>
           </div>
         )}

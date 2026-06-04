@@ -309,13 +309,15 @@ export default async function handler(req, res) {
       for (const enc of withKills) {
         const er = encChar?.[`e${enc.encId}`];
         if (!er?.ranks?.length) continue;
-        // Best kill (rank[0]) — used for consumable data shown in "Best Kill" view
-        const bestKill = er.ranks[0];
-        if (bestKill?.report?.code) {
-          const fightStart = bestKill.startTime - bestKill.report.startTime;
-          enc.reportCode = bestKill.report.code;
+        // Latest kill — most recent by startTime, used for consumable data
+        const latestKill = er.ranks.reduce((latest, r) =>
+          r?.report?.code && (!latest || r.startTime > latest.startTime) ? r : latest
+        , null);
+        if (latestKill) {
+          const fightStart = latestKill.startTime - latestKill.report.startTime;
+          enc.reportCode = latestKill.report.code;
           enc.fightStart = fightStart;
-          enc.fightEnd   = fightStart + (bestKill.duration ?? 0);
+          enc.fightEnd   = fightStart + (latestKill.duration ?? 0);
         }
         // All kills — store report/fight info for consistency rate computation
         enc.allKills = er.ranks

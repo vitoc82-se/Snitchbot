@@ -375,7 +375,7 @@ function BossRow({ b, consistencyMode }) {
           <a href={`https://fresh.warcraftlogs.com/reports/${b.reportCode}`}
             target="_blank" rel="noreferrer"
             style={{ color: '#ddd', textDecoration: 'none' }}
-            title="Open best kill in WCL">
+            title="Open latest kill in WCL">
             {b.bossName} <span style={{ color: '#444', fontSize: '.75rem' }}>↗</span>
           </a>
         ) : <span style={{ color: noKill ? '#555' : '#ddd' }}>{b.bossName}</span>}
@@ -410,7 +410,7 @@ function BossRow({ b, consistencyMode }) {
           </>
         )
       ) : (
-        // Best kill view — original ✓/✗
+        // Latest kill view — original ✓/✗
         noCons ? (
           [0,1,2,3,4,5].map(i => (
             <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem' }}>—</td>
@@ -593,7 +593,7 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
           </div>
           {fetchedAgoMin != null && (
             <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.3rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-              <span>Based on best logged kill per boss &nbsp;·&nbsp;
+              <span>Based on latest logged kill per boss &nbsp;·&nbsp;
               Updated {fetchedAgoMin < 60 ? `${fetchedAgoMin}m` : `${Math.round(fetchedAgoMin / 60)}h`} ago</span>
               {autoUpdating && (
                 <span style={{ color: '#f5c842', fontSize: '.7rem' }}>↻ Updating…</span>
@@ -679,7 +679,7 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
                   'Food buff               +1',
                   'Relevant potion         +1',
                 ]}
-                note="Max varies by class & role. Based on best logged kill per boss."
+                note="Max varies by class & role. Based on latest logged kill per boss."
                 mono
               />}
             />
@@ -706,7 +706,7 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
       {/* View toggle + per-zone boss tables */}
       <div style={{ marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '.4rem', marginBottom: '.75rem' }}>
-          {['Best Kill', 'All Kills'].map(label => {
+          {['Latest Kill', 'All Kills'].map(label => {
             const active = (label === 'All Kills') === consistencyMode;
             return (
               <button
@@ -746,7 +746,7 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
             <span key={l} style={{ color: c, marginRight: '.5rem' }} dangerouslySetInnerHTML={{ __html: l }} />
           ))}
         </span>
-        <span>Consumes based on best logged kill per boss &nbsp;·&nbsp; <span style={{ color: '#333' }}>—</span> = no kill recorded</span>
+        <span>Consumes based on latest logged kill per boss &nbsp;·&nbsp; <span style={{ color: '#333' }}>—</span> = no kill recorded</span>
       </div>
     </div>
   );
