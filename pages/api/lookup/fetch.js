@@ -503,6 +503,7 @@ export default async function handler(req, res) {
           const caEvents = report[`ca_${k.encId}`]?.data || [];
           const wfEvents = report[`wf_${k.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
+          console.log(`[WF rate] ${cleanName} | boss ${k.encId} | report ${code} | fightStart ${k.fightStart} fightEnd ${k.fightEnd} | wfEvents ${wfEvents.length} | ciEvents ${ciEvents.length} | parsed=${!!parsed}`);
           if (!parsed) continue;
           const c = parsed.result;
           if (!c.windfury) {
@@ -511,7 +512,10 @@ export default async function handler(req, res) {
               ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLowerRate ||
                (actorMap[e.targetID] || '').toLowerCase() === cleanNameLowerRate)
             );
+            console.log(`[WF rate] ${cleanName} | boss ${k.encId} | gearWF=${c.windfury} hasWF=${hasWF} food=${c.food}`);
             if (hasWF) c.windfury = true;
+          } else {
+            console.log(`[WF rate] ${cleanName} | boss ${k.encId} | gearWF=true (skipped event scan) food=${c.food}`);
           }
           const r = rateMap[k.encId];
           r.total++;
