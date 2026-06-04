@@ -254,7 +254,7 @@ export default async function handler(req, res) {
         return [
           `ci_${encId}: events(dataType: CombatantInfo, startTime: ${fw.fightStart}, endTime: ${fw.fightEnd}) { data }`,
           `ca_${encId}: events(dataType: Casts, startTime: ${prePot}, endTime: ${fw.fightEnd}) { data }`,
-          `wf_${encId}: events(dataType: Buffs, startTime: ${fw.fightStart}, endTime: ${fw.fightEnd}, abilityID: 25584, limit: 10000) { data }`,
+          `wf_${encId}: events(dataType: Buffs, startTime: ${fw.fightStart}, endTime: ${fw.fightEnd}, limit: 10000) { data }`,
         ];
       }).join('\n');
 
@@ -330,12 +330,11 @@ export default async function handler(req, res) {
             const cat = POTION_CAST_IDS[cast.abilityGameID];
             if (cat && typeof result[cat] === 'number') result[cat]++;
           }
-          // WF fires as ApplyBuff — sourceID = player (WCL source=player for WF Attack)
           if (!result.windfury && wfEvents.some(e =>
-            e.type === 'applybuff' && (
-              String(e.sourceID) === String(sourceId) ||
-              String(e.targetID) === String(sourceId)
-            )
+            e.type === 'applybuff' &&
+            e.abilityGameID === 25584 &&
+            (String(e.sourceID) === String(sourceId) ||
+             String(e.targetID) === String(sourceId))
           )) {
             result.windfury = true;
           }

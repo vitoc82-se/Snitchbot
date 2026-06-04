@@ -403,7 +403,7 @@ export default async function handler(req, res) {
           return [
             `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
             `ca_${b.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
-            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, abilityID: 25584, limit: 10000) { data }`,
+            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, limit: 10000) { data }`,
           ];
         }).join('\n');
 
@@ -431,10 +431,10 @@ export default async function handler(req, res) {
           const wfEvents = report[`wf_${boss.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
           if (parsed) {
-            // Check WF buff apply events — sourceID is the player (WCL shows source=player for WF Attack)
+            // WF Attack (25584) fires as applybuff where sourceID = player
             if (!parsed.result.windfury && wfEvents.some(e =>
               e.type === 'applybuff' &&
-              (e.abilityGameID === 25584 || !e.abilityGameID) && // client-side safety filter
+              e.abilityGameID === 25584 &&
               (String(e.sourceID) === String(parsed.sourceId) ||
                String(e.targetID) === String(parsed.sourceId))
             )) {

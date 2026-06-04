@@ -137,10 +137,11 @@ export default async function handler(req, res) {
     const rosterByName = {};
     raidRoster.forEach(p => { rosterByName[p.name] = p; });
 
-    // Q2: CombatantInfo for every fight in one batched query using aliases
-    const aliases = fights.map((f, i) =>
-      `f${i}: events(dataType: CombatantInfo, startTime: ${f.startTime}, endTime: ${f.endTime}) { data }`
-    ).join('\n');
+    // Q2: CombatantInfo + WF buff events for every fight in one batched query
+    const aliases = fights.flatMap((f, i) => [
+      `f${i}:  events(dataType: CombatantInfo, startTime: ${f.startTime}, endTime: ${f.endTime}) { data }`,
+      `wf${i}: events(dataType: Buffs,         startTime: ${f.startTime}, endTime: ${f.endTime}, limit: 10000) { data }`,
+    ]).join('\n');
 
     const { data: d2 } = await queryWCL(token, `
       query Q2($code: String!) {
@@ -199,40 +200,6 @@ export default async function handler(req, res) {
 
       nextPage = evBlock?.nextPageTimestamp ?? null;
     }
-
-    // Q4: Windfury Attack buff events — spell 25584 fires as ApplyBuff (not Cast).
-    // Query Buffs dataType filtered to that spell ID so we only get WF events (very lightweight).
-    // Store targetID (the player receiving WF) per fight so we can mark windfury:true later.
-    const wfByFight = {}; // fightId → Set of targetIDs who had WF during that fight
-    fights.forEach(f => { wfByFight[f.id] = new Set(); });
-    const logEnd = fights[fights.length - 1].endTime;
-    try {
-      let wfPage = 0;
-      while (wfPage !== null) {
-        const { data: d4 } = await queryWCL(token, `
-          query Q4($code: String!, $start: Float!, $end: Float!) {
-            reportData { report(code: $code) {
-              events(dataType: Buffs, startTime: $start, endTime: $end, limit: 10000,
-                     abilityID: 25584, limit: 10000) {
-                data nextPageTimestamp
-              }
-            }}
-          }
-        `, { code, start: wfPage, end: logEnd });
-
-        const wfBlock = d4?.reportData?.report?.events;
-        (wfBlock?.data || []).forEach(e => {
-          if (e.type !== 'applybuff') return;
-          const fight = fights.find(f => e.timestamp >= f.startTime && e.timestamp <= f.endTime);
-          // sourceID = the player (WCL shows source=player for WF Attack aura)
-          if (fight) {
-            wfByFight[fight.id].add(e.sourceID);
-            if (e.targetID) wfByFight[fight.id].add(e.targetID); // also check target as fallback
-          }
-        });
-        wfPage = wfBlock?.nextPageTimestamp ?? null;
-      }
-    } catch {}  // Non-fatal — WF detection via gear enchants still works as fallback
 
     const uniqueRoster = [...new Map(raidRoster.map(p => [p.name, p])).values()];
 
@@ -297,9 +264,11 @@ export default async function handler(req, res) {
         Object.assign(playerMap[playerName], cats);
       });
 
-      // Apply in-combat WF detections from Q4 Buffs query
-      (wfByFight[fight.id] || new Set()).forEach(targetId => {
-        const playerName = actorMap[targetId];
+      // Apply WF detections from the per-fight Buffs query (included in Q2)
+      // WF Attack (25584) fires as applybuff where sourceID = the player
+      (r2[`wf${i}`]?.data || []).forEach(e => {
+        if (e.type !== 'applybuff' || e.abilityGameID !== 25584) return;
+        const playerName = actorMap[e.sourceID] || actorMap[e.targetID];
         if (playerName && playerMap[playerName]) {
           playerMap[playerName].windfury = true;
         }
