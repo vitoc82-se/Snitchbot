@@ -425,16 +425,21 @@ export default async function handler(req, res) {
         const auraNameMap = {};
         (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
 
+        const cleanNameLower = cleanName.toLowerCase();
         for (const boss of bosses) {
-          const ciEvents = report[`ci_${boss.encId}`]?.data || [];
-          const caEvents = report[`ca_${boss.encId}`]?.data || [];
-          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
+          const ciEvents  = report[`ci_${boss.encId}`]?.data || [];
+          const caEvents  = report[`ca_${boss.encId}`]?.data || [];
+          const wfEvents  = report[`wf_${boss.encId}`]?.data || [];
+          const parsed    = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLower);
+          console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | report ${code} | fightStart ${boss.fightStart} fightEnd ${boss.fightEnd} | wfEvents ${wfEvents.length} | ciEvents ${ciEvents.length}`);
           if (parsed) {
             if (!parsed.result.windfury) {
-              const hasWF = (report[`wf_${boss.encId}`]?.data || []).some(e =>
+              const hasWF = wfEvents.some(e =>
                 e.type === 'applybuff' && e.abilityGameID === 25584 &&
-                (actorMap[e.sourceID] === cleanName || actorMap[e.targetID] === cleanName)
+                ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLower ||
+                 (actorMap[e.targetID] || '').toLowerCase() === cleanNameLower)
               );
+              console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | hasWF=${hasWF} | parsedWF=${parsed.result.windfury}`);
               if (hasWF) parsed.result.windfury = true;
             }
             consumableMap[boss.encId] = parsed.result;
