@@ -403,7 +403,6 @@ export default async function handler(req, res) {
           return [
             `ci_${b.encId}: events(dataType: CombatantInfo, startTime: ${b.fightStart}, endTime: ${b.fightEnd}) { data }`,
             `ca_${b.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${b.fightEnd}) { data }`,
-            `wf_${b.encId}: events(dataType: Buffs, startTime: ${b.fightStart}, endTime: ${b.fightEnd}, limit: 10000) { data }`,
           ];
         }).join('\n');
 
@@ -425,19 +424,39 @@ export default async function handler(req, res) {
         const auraNameMap = {};
         (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
 
+        // Determine this player's actor ID in this report
+        const sourceId = Object.entries(actorMap)
+          .find(([, n]) => n.toLowerCase() === cleanName.toLowerCase())?.[0];
+
+        // WF scan: query only THIS player's buff events — targetID filter keeps it tiny
+        // Fight events are dense (10k+ total) so we must filter by player, not rely on limit
+        let wfEventsByFight = {}; // encId → boolean
+        if (sourceId) {
+          try {
+            const wfResult = await wclQuery(`
+              query($code: String!, $tid: Int!) {
+                reportData { report(code: $code) {
+                  events(dataType: Buffs, startTime: 0, endTime: 9999999999,
+                         targetID: $tid, limit: 10000) { data }
+                }}
+              }
+            `, { code, tid: Number(sourceId) });
+            const wfAll = (wfResult?.reportData?.report?.events?.data || [])
+              .filter(e => e.type === 'applybuff' && e.abilityGameID === 25584);
+            for (const boss of bosses) {
+              wfEventsByFight[boss.encId] = wfAll.some(e =>
+                e.timestamp >= boss.fightStart && e.timestamp <= boss.fightEnd
+              );
+            }
+          } catch {}
+        }
+
         for (const boss of bosses) {
           const ciEvents = report[`ci_${boss.encId}`]?.data || [];
           const caEvents = report[`ca_${boss.encId}`]?.data || [];
-          const wfEvents = report[`wf_${boss.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
           if (parsed) {
-            // WF Attack (25584) fires as applybuff where sourceID = player
-            if (!parsed.result.windfury && wfEvents.some(e =>
-              e.type === 'applybuff' &&
-              e.abilityGameID === 25584 &&
-              (String(e.sourceID) === String(parsed.sourceId) ||
-               String(e.targetID) === String(parsed.sourceId))
-            )) {
+            if (!parsed.result.windfury && wfEventsByFight[boss.encId]) {
               parsed.result.windfury = true;
             }
             consumableMap[boss.encId] = parsed.result;
