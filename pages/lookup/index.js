@@ -117,6 +117,17 @@ function ConsumeTick({ val, na }) {
   return <span style={{ color: '#e05555' }}>✗</span>;
 }
 
+// Consistency rate cell — shows "7/10" with colour coding
+// rate = 0.00–1.00, kills = total kill count
+function RateCell({ rate, kills }) {
+  if (rate === null || rate === undefined || kills == null || kills === 0) {
+    return <span style={{ color: '#333' }}>—</span>;
+  }
+  const count = Math.round(rate * kills);
+  const color = rate >= 0.8 ? '#4caf50' : rate >= 0.5 ? '#f5c842' : '#e05555';
+  return <span style={{ color, fontWeight: 600 }}>{count}/{kills}</span>;
+}
+
 const REGIONS = ['EU', 'US', 'KR', 'TW'];
 const KNOWN_SERVERS = [
   { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
@@ -346,15 +357,15 @@ function StatCard({ value, label, sub, color, info }) {
   );
 }
 
-function BossRow({ b }) {
-  const noKill  = b.totalKills === 0;
-  const noCons  = b.flask === null && b.battleElixir === null;
+function BossRow({ b, consistencyMode }) {
+  const noKill   = b.totalKills === 0;
+  const noCons   = b.flask === null && b.battleElixir === null;
   const hasFlask = b.flask === true;
   const usedPot  = b.hastePot > 0 || b.destroPot > 0 || b.manaPot > 0;
   const weaponVal = (b.weaponOil || b.weaponStone)
     ? true
     : (b.weaponOil === false || b.weaponStone === false) ? false : null;
-
+  const hasRates = b.flaskRate !== null || b.foodRate !== null;
   const tdCenter = { textAlign: 'center', verticalAlign: 'middle' };
 
   return (
@@ -382,19 +393,38 @@ function BossRow({ b }) {
       </td>
       <td style={{ ...tdCenter, color: '#555', fontSize: '.82rem' }}>{fmtMs(b.fastestKill)}</td>
 
-      {noCons ? (
-        [0,1,2,3,4,5].map(i => (
-          <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem' }}>—</td>
-        ))
+      {consistencyMode ? (
+        // Consistency view — show X/kills counts
+        noCons || !hasRates ? (
+          [0,1,2,3,4,5].map(i => (
+            <td key={i} style={{ ...tdCenter, color: '#333', fontSize: '.8rem' }}>—</td>
+          ))
+        ) : (
+          <>
+            <td style={tdCenter}><RateCell rate={b.flaskRate}        kills={b.totalKills} /></td>
+            <td style={tdCenter}><RateCell rate={hasFlask ? null : b.battleElixRate}   kills={b.totalKills} /></td>
+            <td style={tdCenter}><RateCell rate={hasFlask ? null : b.guardianElixRate} kills={b.totalKills} /></td>
+            <td style={tdCenter}><RateCell rate={b.foodRate}         kills={b.totalKills} /></td>
+            <td style={tdCenter}><RateCell rate={b.weaponRate}       kills={b.totalKills} /></td>
+            <td style={tdCenter}><RateCell rate={b.potRate}          kills={b.totalKills} /></td>
+          </>
+        )
       ) : (
-        <>
-          <td style={tdCenter}><ConsumeTick val={b.flask} /></td>
-          <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.battleElixir} /></td>
-          <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.guardianElixir} /></td>
-          <td style={tdCenter}><ConsumeTick val={b.food} /></td>
-          <td style={tdCenter}><ConsumeTick val={weaponVal} /></td>
-          <td style={tdCenter}><ConsumeTick val={usedPot} /></td>
-        </>
+        // Best kill view — original ✓/✗
+        noCons ? (
+          [0,1,2,3,4,5].map(i => (
+            <td key={i} style={{ ...tdCenter, color: '#222', fontSize: '.8rem' }}>—</td>
+          ))
+        ) : (
+          <>
+            <td style={tdCenter}><ConsumeTick val={b.flask} /></td>
+            <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.battleElixir} /></td>
+            <td style={tdCenter}><ConsumeTick val={hasFlask ? null : b.guardianElixir} /></td>
+            <td style={tdCenter}><ConsumeTick val={b.food} /></td>
+            <td style={tdCenter}><ConsumeTick val={weaponVal} /></td>
+            <td style={tdCenter}><ConsumeTick val={usedPot} /></td>
+          </>
+        )
       )}
 
       <td style={{
@@ -403,12 +433,11 @@ function BossRow({ b }) {
       }}>
         {b.consumeScore != null ? `${b.consumeScore}/${b.consumeMax}` : '—'}
       </td>
-
     </tr>
   );
 }
 
-function ZoneSection({ zone, defaultOpen = false }) {
+function ZoneSection({ zone, defaultOpen = false, consistencyMode = false }) {
   const [open, setOpen] = useState(defaultOpen);
 
   // Zone-level summary stats
@@ -514,7 +543,7 @@ function ZoneSection({ zone, defaultOpen = false }) {
               </tr>
             </thead>
             <tbody>
-              {zone.bosses.map(b => <BossRow key={b.encounterId} b={b} />)}
+              {zone.bosses.map(b => <BossRow key={b.encounterId} b={b} consistencyMode={consistencyMode} />)}
             </tbody>
           </table>
         </div>
@@ -523,7 +552,8 @@ function ZoneSection({ zone, defaultOpen = false }) {
   );
 }
 
-function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
+function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating }) {
+  const [consistencyMode, setConsistencyMode] = useState(false);
   const zones = groupByZone(bosses).sort((a, b) => b.bosses[0].zoneId - a.bosses[0].zoneId);
   const withKills = bosses.filter(b => b.totalKills > 0);
   const withCons  = bosses.filter(b => b.consumeScore != null);
@@ -562,19 +592,32 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
             ].filter(Boolean).join('  ·  ')}
           </div>
           {fetchedAgoMin != null && (
-            <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.3rem' }}>
-              Based on best logged kill per boss &nbsp;·&nbsp;
-              Updated {fetchedAgoMin < 60 ? `${fetchedAgoMin}m` : `${Math.round(fetchedAgoMin / 60)}h`} ago
+            <div style={{ color: '#444', fontSize: '.72rem', marginTop: '.3rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+              <span>Based on best logged kill per boss &nbsp;·&nbsp;
+              Updated {fetchedAgoMin < 60 ? `${fetchedAgoMin}m` : `${Math.round(fetchedAgoMin / 60)}h`} ago</span>
+              {autoUpdating && (
+                <span style={{ color: '#f5c842', fontSize: '.7rem' }}>↻ Updating…</span>
+              )}
             </div>
           )}
         </div>
-        <button
-          className="btn btn-sm"
-          onClick={onRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? '↻ Refreshing…' : '↻ Refresh data'}
-        </button>
+        <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+          <a
+            href={`/compare?a=${encodeURIComponent(profile.name)}&serverA=${encodeURIComponent(profile.server)}&regionA=${encodeURIComponent(profile.region)}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <button className="btn btn-sm" type="button" style={{ background: 'transparent', border: '1px solid #2a2a2a', color: '#888' }}>
+              ⇄ Compare
+            </button>
+          </a>
+          <button
+            className="btn btn-sm"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? '↻ Refreshing…' : '↻ Refresh data'}
+          </button>
+        </div>
       </div>
 
       {/* Stat cards */}
@@ -660,13 +703,40 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
         );
       })()}
 
-      {/* Per-zone boss tables — first zone with kills is open by default */}
-      <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
-        {zones.map((z, i) => {
-          const hasKills = z.bosses.some(b => b.totalKills > 0);
-          const firstWithKills = zones.findIndex(z2 => z2.bosses.some(b => b.totalKills > 0));
-          return <ZoneSection key={z.name} zone={z} defaultOpen={i === firstWithKills} />;
-        })}
+      {/* View toggle + per-zone boss tables */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', gap: '.4rem', marginBottom: '.75rem' }}>
+          {['Best Kill', 'All Kills'].map(label => {
+            const active = (label === 'All Kills') === consistencyMode;
+            return (
+              <button
+                key={label}
+                onClick={() => setConsistencyMode(label === 'All Kills')}
+                style={{
+                  padding: '.3rem .85rem', fontSize: '.78rem', borderRadius: 4, cursor: 'pointer',
+                  background: active ? '#1a1a1a' : 'transparent',
+                  border: active ? '1px solid #f5c842' : '1px solid #2a2a2a',
+                  color: active ? '#f5c842' : '#555',
+                  transition: 'all .15s',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+          {consistencyMode && (
+            <span style={{ color: '#444', fontSize: '.72rem', alignSelf: 'center', marginLeft: '.25rem' }}>
+              Shows consumable usage across all logged kills
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '.4rem' }}>
+          {zones.map((z, i) => {
+            const firstWithKills = zones.findIndex(z2 => z2.bosses.some(b => b.totalKills > 0));
+            return <ZoneSection key={z.name} zone={z} defaultOpen={i === firstWithKills} consistencyMode={consistencyMode} />;
+          })}
+        </div>
       </div>
 
       {/* Legend */}
@@ -687,12 +757,13 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing }) {
 export default function LookupPage() {
   const router = useRouter();
 
-  const [phase,      setPhase]      = useState('idle');   // idle | loading | done | error
-  const [profile,    setProfile]    = useState(null);
-  const [bosses,     setBosses]     = useState([]);
-  const [errorMsg,   setErrorMsg]   = useState('');
-  const [statusMsg,  setStatusMsg]  = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const [phase,        setPhase]        = useState('idle');   // idle | loading | done | error
+  const [profile,      setProfile]      = useState(null);
+  const [bosses,       setBosses]       = useState([]);
+  const [errorMsg,     setErrorMsg]     = useState('');
+  const [statusMsg,    setStatusMsg]    = useState('');
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [autoUpdating, setAutoUpdating] = useState(false);  // silent background refresh
 
   const { name: qName, server: qServer, region: qRegion } = router.query;
 
@@ -711,6 +782,21 @@ export default function LookupPage() {
         setProfile(cached.profile);
         setBosses(cached.bosses);
         setPhase('done');
+        // If data is stale (>7 days), silently trigger a background refresh
+        if (cached.stale) {
+          setAutoUpdating(true);
+          fetch('/api/lookup/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, serverSlug: server, serverRegion: region }),
+          }).then(() =>
+            fetch(`/api/lookup?name=${encodeURIComponent(name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`)
+              .then(r => r.json())
+              .then(fresh => {
+                if (fresh.status === 'done') { setProfile(fresh.profile); setBosses(fresh.bosses); }
+              })
+          ).finally(() => setAutoUpdating(false));
+        }
         return;
       }
 
@@ -830,6 +916,7 @@ export default function LookupPage() {
             bosses={bosses}
             onRefresh={handleRefresh}
             refreshing={refreshing}
+            autoUpdating={autoUpdating}
           />
         )}
 

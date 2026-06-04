@@ -10,7 +10,7 @@
  */
 import sql from '../../../lib/db';
 
-const CACHE_TTL_HOURS = 24;
+const CACHE_TTL_DAYS = 7; // auto-refresh after 7 days
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).end();
@@ -39,11 +39,12 @@ export default async function handler(req, res) {
     if (p.fetch_status === 'fetching') return res.json({ status: 'fetching' });
     if (p.fetch_status === 'error')    return res.json({ status: 'error', error: p.error_message });
 
-    // Check staleness
-    const ageHours = p.fetched_at
-      ? (Date.now() - new Date(p.fetched_at).getTime()) / 3600000
+    // Check staleness — stale = never fetched OR older than 7 days
+    // Return data immediately but include stale:true so client can auto-refresh
+    const ageDays = p.fetched_at
+      ? (Date.now() - new Date(p.fetched_at).getTime()) / 86400000
       : Infinity;
-    if (ageHours > CACHE_TTL_HOURS) return res.json({ status: 'stale' });
+    const isStale = ageDays > CACHE_TTL_DAYS;
 
     // Load boss rows ordered by zone then encounter
     const bosses = await sql`
@@ -54,7 +55,8 @@ export default async function handler(req, res) {
         haste_potion, destruction_potion, mana_potion, healthstone,
         consume_score, consume_max,
         enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
-        enchant_legs, enchant_bracer, enchant_gloves, enchant_score
+        enchant_legs, enchant_bracer, enchant_gloves, enchant_score,
+        flask_rate, battle_elix_rate, guardian_elix_rate, food_rate, weapon_rate, pot_rate
       FROM player_lookup_bosses
       WHERE player_id = ${p.id}
       ORDER BY zone_id, encounter_id
@@ -62,6 +64,7 @@ export default async function handler(req, res) {
 
     return res.json({
       status: 'done',
+      stale: isStale,  // true = older than 7 days, client should auto-refresh
       profile: {
         name:       p.name,
         classId:    p.class_id,
@@ -104,6 +107,12 @@ export default async function handler(req, res) {
         enchantBracer:    b.enchant_bracer,
         enchantGloves:    b.enchant_gloves,
         enchantScore:     b.enchant_score !== null ? Number(b.enchant_score) : null,
+        flaskRate:        b.flask_rate         !== null ? Number(b.flask_rate)         : null,
+        battleElixRate:   b.battle_elix_rate   !== null ? Number(b.battle_elix_rate)   : null,
+        guardianElixRate: b.guardian_elix_rate !== null ? Number(b.guardian_elix_rate) : null,
+        foodRate:         b.food_rate          !== null ? Number(b.food_rate)          : null,
+        weaponRate:       b.weapon_rate        !== null ? Number(b.weapon_rate)        : null,
+        potRate:          b.pot_rate           !== null ? Number(b.pot_rate)           : null,
       })),
     });
 

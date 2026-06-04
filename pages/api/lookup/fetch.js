@@ -155,6 +155,13 @@ async function ensureTables() {
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_bracer   BOOLEAN`;
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_gloves   BOOLEAN`;
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS enchant_score    INT`;
+  // Consistency rate columns (2.1) — fraction of kills with each consumable (0.00–1.00)
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS flask_rate           NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS battle_elix_rate     NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS guardian_elix_rate   NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS food_rate            NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS weapon_rate          NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS pot_rate             NUMERIC(4,2)`;
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -286,7 +293,7 @@ export default async function handler(req, res) {
     const withKills = Object.values(rankingMap);
     if (withKills.length > 0) {
       const encAliases = withKills.map(e =>
-        `e${e.encId}: encounterRankings(encounterID: ${e.encId})`
+        `e${e.encId}: encounterRankings(encounterID: ${e.encId}, limit: 100)`
       ).join('\n');
       const encResult = await wclFreshQuery(`
         query($name: String!, $serverSlug: String!, $serverRegion: String!) {
@@ -301,12 +308,22 @@ export default async function handler(req, res) {
       const encChar = encResult?.characterData?.character;
       for (const enc of withKills) {
         const er = encChar?.[`e${enc.encId}`];
-        const bestKill = er?.ranks?.[0];
-        if (!bestKill?.report?.code) continue;
-        const fightStart = bestKill.startTime - bestKill.report.startTime;
-        enc.reportCode = bestKill.report.code;
-        enc.fightStart = fightStart;
-        enc.fightEnd   = fightStart + (bestKill.duration ?? 0);
+        if (!er?.ranks?.length) continue;
+        // Best kill (rank[0]) — used for consumable data shown in "Best Kill" view
+        const bestKill = er.ranks[0];
+        if (bestKill?.report?.code) {
+          const fightStart = bestKill.startTime - bestKill.report.startTime;
+          enc.reportCode = bestKill.report.code;
+          enc.fightStart = fightStart;
+          enc.fightEnd   = fightStart + (bestKill.duration ?? 0);
+        }
+        // All kills — store report/fight info for consistency rate computation
+        enc.allKills = er.ranks
+          .filter(r => r?.report?.code)
+          .map(r => {
+            const fs = r.startTime - r.report.startTime;
+            return { code: r.report.code, fightStart: fs, fightEnd: fs + (r.duration ?? 0) };
+          });
       }
     }
 
@@ -327,8 +344,50 @@ export default async function handler(req, res) {
       byReport[boss.reportCode].push(boss);
     }
 
-    const consumableMap = {}; // encId → consumable fields
+    const consumableMap = {}; // encId → consumable fields (best kill)
+    const rateMap       = {}; // encId → consistency rate tallies
 
+    // Helper: parse consumables from one fight's CI + cast events
+    function parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, targetLower) {
+      const sourceId = Object.entries(actorMap)
+        .find(([, n]) => n.toLowerCase() === targetLower)?.[0];
+      if (!sourceId) return null;
+      const myEvent = ciEvents.find(e => String(e.sourceID) === String(sourceId));
+      const result = {
+        flask: false, battle_elixir: false, guardian_elixir: false, food: false,
+        weapon_oil: false, weapon_stone: false,
+        haste_potion: 0, destruction_potion: 0, mana_potion: 0, healthstone: 0,
+        enchant_mainhand: false, enchant_head: false, enchant_shoulder: false,
+        enchant_chest: false, enchant_legs: false, enchant_bracer: false,
+        enchant_gloves: false, enchantScore: 0,
+      };
+      if (myEvent) {
+        for (const aura of (myEvent.auras || [])) {
+          const selfApplied = aura.source === myEvent.sourceID;
+          const cat = detectBuff(auraNameMap[aura.ability] || '', aura.ability, selfApplied);
+          if (cat) result[cat] = true;
+        }
+        for (const slot of (myEvent.gear || [])) {
+          const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
+          if (cat) result[cat] = true;
+        }
+        const enchants = detectEnchants(myEvent.gear);
+        Object.assign(result, {
+          enchant_mainhand: enchants.mainhand, enchant_head: enchants.head,
+          enchant_shoulder: enchants.shoulder, enchant_chest: enchants.chest,
+          enchant_legs: enchants.legs, enchant_bracer: enchants.bracer,
+          enchant_gloves: enchants.gloves, enchantScore: enchants.enchantScore,
+        });
+      }
+      for (const cast of caEvents) {
+        if (String(cast.sourceID) !== String(sourceId)) continue;
+        const cat = POTION_CAST_IDS[cast.abilityGameID];
+        if (cat && typeof result[cat] === 'number') result[cat]++;
+      }
+      return { result, sourceId };
+    }
+
+    // ── Fetch best-kill consumables (existing logic) ──────────────────────────
     await Promise.all(
       Object.entries(byReport).map(async ([code, bosses]) => {
         const bossAliases = bosses.flatMap(b => {
@@ -354,60 +413,79 @@ export default async function handler(req, res) {
 
         const actorMap = {};
         (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
-
         const auraNameMap = {};
         (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
-
-        const targetLower = cleanName.toLowerCase();
-        const sourceId    = Object.entries(actorMap)
-          .find(([, n]) => n.toLowerCase() === targetLower)?.[0];
-        if (!sourceId) return;
 
         for (const boss of bosses) {
           const ciEvents = report[`ci_${boss.encId}`]?.data || [];
           const caEvents = report[`ca_${boss.encId}`]?.data || [];
-          const myEvent  = ciEvents.find(e => String(e.sourceID) === String(sourceId));
+          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
+          if (parsed) consumableMap[boss.encId] = parsed.result;
+        }
+      })
+    );
 
-          const result = {
-            flask: false, battle_elixir: false, guardian_elixir: false, food: false,
-            weapon_oil: false, weapon_stone: false,
-            haste_potion: 0, destruction_potion: 0, mana_potion: 0, healthstone: 0,
-            enchant_mainhand: false, enchant_head: false, enchant_shoulder: false,
-            enchant_chest: false, enchant_legs: false, enchant_bracer: false,
-            enchant_gloves: false, enchantScore: 0,
-          };
+    // ── Fetch consistency rates across all kills ──────────────────────────────
+    // Group all kills by report code so we batch WCL queries efficiently
+    const killsByReport = {}; // code → [{ encId, fightStart, fightEnd }]
+    for (const enc of withKills) {
+      if (!enc.allKills?.length) continue;
+      for (const kill of enc.allKills) {
+        if (!killsByReport[kill.code]) killsByReport[kill.code] = [];
+        killsByReport[kill.code].push({ encId: enc.encId, ...kill });
+      }
+    }
 
-          if (myEvent) {
-            for (const aura of (myEvent.auras || [])) {
-              const selfApplied = aura.source === myEvent.sourceID;
-              const cat = detectBuff(auraNameMap[aura.ability] || '', aura.ability, selfApplied);
-              if (cat) result[cat] = true;
-            }
-            for (const slot of (myEvent.gear || [])) {
-              const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
-              if (cat) result[cat] = true;
-            }
-            // Detect permanent enchants on key gear slots
-            const enchants = detectEnchants(myEvent.gear);
-            Object.assign(result, {
-              enchant_mainhand: enchants.mainhand,
-              enchant_head:     enchants.head,
-              enchant_shoulder: enchants.shoulder,
-              enchant_chest:    enchants.chest,
-              enchant_legs:     enchants.legs,
-              enchant_bracer:   enchants.bracer,
-              enchant_gloves:   enchants.gloves,
-              enchantScore:     enchants.enchantScore,
-            });
+    // Initialise rate tallies
+    for (const enc of withKills) {
+      rateMap[enc.encId] = { flask: 0, battle_elixir: 0, guardian_elixir: 0, food: 0, weapon: 0, pot: 0, total: 0 };
+    }
+
+    await Promise.all(
+      Object.entries(killsByReport).map(async ([code, kills]) => {
+        // Deduplicate: same report can appear for multiple bosses, batch all fights
+        const uniqueEncs = [...new Map(kills.map(k => [k.encId, k])).values()];
+        const aliases = uniqueEncs.flatMap(k => {
+          const prePot = Math.max(0, k.fightStart - PREPOT_WINDOW_MS);
+          return [
+            `ci_${k.encId}: events(dataType: CombatantInfo, startTime: ${k.fightStart}, endTime: ${k.fightEnd}) { data }`,
+            `ca_${k.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${k.fightEnd}) { data }`,
+          ];
+        }).join('\n');
+
+        const repResult = await wclQuery(`
+          query($code: String!) {
+            reportData { report(code: $code) {
+              masterData { actors(type: "Player") { id name } }
+              buffs: table(dataType: Buffs, startTime: 0, endTime: 9999999999)
+              ${aliases}
+            }}
           }
+        `, { code });
 
-          for (const cast of caEvents) {
-            if (String(cast.sourceID) !== String(sourceId)) continue;
-            const cat = POTION_CAST_IDS[cast.abilityGameID];
-            if (cat && typeof result[cat] === 'number') result[cat]++;
-          }
+        const report = repResult?.reportData?.report;
+        if (!report) return;
 
-          consumableMap[boss.encId] = result;
+        const actorMap = {};
+        (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
+        const auraNameMap = {};
+        (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
+
+        for (const k of uniqueEncs) {
+          if (!rateMap[k.encId]) continue;
+          const ciEvents = report[`ci_${k.encId}`]?.data || [];
+          const caEvents = report[`ca_${k.encId}`]?.data || [];
+          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
+          if (!parsed) continue;
+          const c = parsed.result;
+          const r = rateMap[k.encId];
+          r.total++;
+          if (c.flask)                                       r.flask++;
+          if (c.battle_elixir)                               r.battle_elixir++;
+          if (c.guardian_elixir)                             r.guardian_elixir++;
+          if (c.food)                                        r.food++;
+          if (c.weapon_oil || c.weapon_stone)                r.weapon++;
+          if (c.haste_potion > 0 || c.destruction_potion > 0 || c.mana_potion > 0) r.pot++;
         }
       })
     );
@@ -436,6 +514,16 @@ export default async function handler(req, res) {
       const cScore = fakePlayer ? calcScore(fakePlayer, DEFAULT_MANDATORY) : null;
       const cMax   = fakePlayer ? calcMax(fakePlayer,   DEFAULT_MANDATORY) : null;
 
+      // Compute consistency rates
+      const rates = rateMap[enc.encId];
+      const rateOf = (n) => rates && rates.total > 0 ? parseFloat((n / rates.total).toFixed(2)) : null;
+      const flaskRate      = rateOf(rates?.flask        ?? 0);
+      const battleElRate   = rateOf(rates?.battle_elixir ?? 0);
+      const guardianElRate = rateOf(rates?.guardian_elixir ?? 0);
+      const foodRate       = rateOf(rates?.food         ?? 0);
+      const weaponRate     = rateOf(rates?.weapon       ?? 0);
+      const potRate        = rateOf(rates?.pot          ?? 0);
+
       await sql`
         INSERT INTO player_lookup_bosses (
           player_id, zone_id, zone_name, encounter_id, boss_name, report_code, best_spec,
@@ -444,7 +532,8 @@ export default async function handler(req, res) {
           haste_potion, destruction_potion, mana_potion, healthstone,
           consume_score, consume_max,
           enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
-          enchant_legs, enchant_bracer, enchant_gloves, enchant_score
+          enchant_legs, enchant_bracer, enchant_gloves, enchant_score,
+          flask_rate, battle_elix_rate, guardian_elix_rate, food_rate, weapon_rate, pot_rate
         ) VALUES (
           ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.encId}, ${enc.bossName},
           ${ranking?.reportCode ?? null}, ${ranking?.bestSpec ?? null},
@@ -460,7 +549,8 @@ export default async function handler(req, res) {
           ${cons?.enchant_mainhand ?? null}, ${cons?.enchant_head     ?? null},
           ${cons?.enchant_shoulder ?? null}, ${cons?.enchant_chest    ?? null},
           ${cons?.enchant_legs     ?? null}, ${cons?.enchant_bracer   ?? null},
-          ${cons?.enchant_gloves   ?? null}, ${cons?.enchantScore     ?? null}
+          ${cons?.enchant_gloves   ?? null}, ${cons?.enchantScore     ?? null},
+          ${flaskRate}, ${battleElRate}, ${guardianElRate}, ${foodRate}, ${weaponRate}, ${potRate}
         )
         ON CONFLICT (player_id, encounter_id) DO UPDATE SET
           report_code = EXCLUDED.report_code, best_spec = EXCLUDED.best_spec,
@@ -476,7 +566,10 @@ export default async function handler(req, res) {
           enchant_mainhand = EXCLUDED.enchant_mainhand, enchant_head = EXCLUDED.enchant_head,
           enchant_shoulder = EXCLUDED.enchant_shoulder, enchant_chest = EXCLUDED.enchant_chest,
           enchant_legs = EXCLUDED.enchant_legs, enchant_bracer = EXCLUDED.enchant_bracer,
-          enchant_gloves = EXCLUDED.enchant_gloves, enchant_score = EXCLUDED.enchant_score
+          enchant_gloves = EXCLUDED.enchant_gloves, enchant_score = EXCLUDED.enchant_score,
+          flask_rate = EXCLUDED.flask_rate, battle_elix_rate = EXCLUDED.battle_elix_rate,
+          guardian_elix_rate = EXCLUDED.guardian_elix_rate, food_rate = EXCLUDED.food_rate,
+          weapon_rate = EXCLUDED.weapon_rate, pot_rate = EXCLUDED.pot_rate
       `;
     }
 
