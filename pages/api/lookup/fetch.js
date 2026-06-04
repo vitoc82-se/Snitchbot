@@ -432,7 +432,6 @@ export default async function handler(req, res) {
           const caEvents  = report[`ca_${boss.encId}`]?.data || [];
           const wfEvents  = report[`wf_${boss.encId}`]?.data || [];
           const parsed    = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLower);
-          console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | report ${code} | fightStart ${boss.fightStart} fightEnd ${boss.fightEnd} | wfEvents ${wfEvents.length} | ciEvents ${ciEvents.length}`);
           if (parsed) {
             if (!parsed.result.windfury) {
               const hasWF = wfEvents.some(e =>
@@ -440,7 +439,6 @@ export default async function handler(req, res) {
                 ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLower ||
                  (actorMap[e.targetID] || '').toLowerCase() === cleanNameLower)
               );
-              console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | hasWF=${hasWF} | parsedWF=${parsed.result.windfury}`);
               if (hasWF) parsed.result.windfury = true;
             }
             consumableMap[boss.encId] = parsed.result;
@@ -503,7 +501,6 @@ export default async function handler(req, res) {
           const caEvents = report[`ca_${k.encId}`]?.data || [];
           const wfEvents = report[`wf_${k.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
-          console.log(`[WF rate] ${cleanName} | boss ${k.encId} | report ${code} | fightStart ${k.fightStart} fightEnd ${k.fightEnd} | wfEvents ${wfEvents.length} | ciEvents ${ciEvents.length} | parsed=${!!parsed}`);
           if (!parsed) continue;
           const c = parsed.result;
           if (!c.windfury) {
@@ -512,10 +509,8 @@ export default async function handler(req, res) {
               ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLowerRate ||
                (actorMap[e.targetID] || '').toLowerCase() === cleanNameLowerRate)
             );
-            console.log(`[WF rate] ${cleanName} | boss ${k.encId} | gearWF=${c.windfury} hasWF=${hasWF} food=${c.food}`);
             if (hasWF) c.windfury = true;
           } else {
-            console.log(`[WF rate] ${cleanName} | boss ${k.encId} | gearWF=true (skipped event scan) food=${c.food}`);
           }
           const r = rateMap[k.encId];
           r.total++;
@@ -562,7 +557,6 @@ export default async function handler(req, res) {
       const foodRate       = rateOf(rates?.food         ?? 0);
       const weaponRate     = rateOf(rates?.weapon       ?? 0);
       const potRate        = rateOf(rates?.pot          ?? 0);
-      console.log(`[INSERT] encId=${enc.encId} total=${rates?.total} weapon=${rates?.weapon} weaponRate=${weaponRate} food=${rates?.food} foodRate=${rateOf(rates?.food ?? 0)}`);
 
       await sql`
         INSERT INTO player_lookup_bosses (
