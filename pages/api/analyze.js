@@ -2,7 +2,7 @@ import {
   WCL_TOKEN_URL, WCL_API_URL, PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS, POTION_CAST_IDS, SCROLL_IDS, WEAPON_ENCHANT_IDS,
 } from '../../lib/constants';
-import { trackAnalysis } from '../../lib/redis';
+import { trackAnalysis, redisGet, redisSet } from '../../lib/redis';
 
 // Classifies a self-applied aura into a consumable category.
 // Returns null if the aura is not a tracked consumable.
@@ -21,7 +21,22 @@ function detectBuff(buffName, buffId, selfApplied) {
   return null;
 }
 
+// In-memory token cache for this instance
+let _analyzeToken = null, _analyzeExpiry = 0;
+
 async function getToken() {
+  // 1. In-memory cache
+  if (_analyzeToken && Date.now() < _analyzeExpiry) return _analyzeToken;
+
+  // 2. Redis shared cache
+  const cached = await redisGet('wcl:token:retail');
+  if (cached) {
+    _analyzeToken  = cached;
+    _analyzeExpiry = Date.now() + 300_000;
+    return cached;
+  }
+
+  // 3. Fetch fresh token
   const credentials = Buffer.from(
     `${process.env.WCL_CLIENT_ID}:${process.env.WCL_CLIENT_SECRET}`
   ).toString('base64');
@@ -31,7 +46,15 @@ async function getToken() {
     body: 'grant_type=client_credentials',
   });
   if (!res.ok) throw new Error('Failed to authenticate with Warcraft Logs');
-  return (await res.json()).access_token;
+  const data = await res.json();
+  if (!data.access_token) throw new Error('No access token in WCL response');
+
+  const ttl = (data.expires_in ?? 3600) - 120;
+  await redisSet('wcl:token:retail', data.access_token, ttl);
+  _analyzeToken  = data.access_token;
+  _analyzeExpiry = Date.now() + Math.min(ttl, 300) * 1000;
+
+  return data.access_token;
 }
 
 async function queryWCL(token, query, variables = {}) {
