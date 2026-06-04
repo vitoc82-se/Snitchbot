@@ -113,6 +113,7 @@ function fmtMs(ms) {
 
 function ConsumeTick({ val, na }) {
   if (na || val === null || val === undefined) return <span style={{ color: '#333' }}>—</span>;
+  if (val === 'WF') return <span style={{ color: '#4caf50', fontWeight: 700, fontSize: '.75rem' }}>WF</span>;
   if (val) return <span style={{ color: '#4caf50' }}>✓</span>;
   return <span style={{ color: '#e05555' }}>✗</span>;
 }
@@ -362,9 +363,11 @@ function BossRow({ b, consistencyMode }) {
   const noCons   = b.flask === null && b.battleElixir === null;
   const hasFlask = b.flask === true;
   const usedPot  = b.hastePot > 0 || b.destroPot > 0 || b.manaPot > 0;
-  const weaponVal = (b.weaponOil || b.weaponStone)
-    ? true
-    : (b.weaponOil === false || b.weaponStone === false) ? false : null;
+  const weaponVal = b.windfury
+    ? 'WF'
+    : (b.weaponOil || b.weaponStone)
+      ? true
+      : (b.weaponOil === false || b.weaponStone === false) ? false : null;
   const hasRates = b.flaskRate !== null || b.foodRate !== null;
   const tdCenter = { textAlign: 'center', verticalAlign: 'middle' };
 

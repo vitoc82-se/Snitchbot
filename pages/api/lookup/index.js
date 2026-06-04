@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       SELECT
         zone_id, zone_name, encounter_id, boss_name, report_code, best_spec,
         rank_percent, median_percent, best_amount, total_kills, fastest_kill,
-        flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone,
+        flask, battle_elixir, guardian_elixir, food, weapon_oil, weapon_stone, windfury,
         haste_potion, destruction_potion, mana_potion, healthstone,
         consume_score, consume_max,
         enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
@@ -93,6 +93,7 @@ export default async function handler(req, res) {
         food:             b.food,
         weaponOil:        b.weapon_oil,
         weaponStone:      b.weapon_stone,
+        windfury:         b.windfury,
         hastePot:         Number(b.haste_potion),
         destroPot:        Number(b.destruction_potion),
         manaPot:          Number(b.mana_potion),

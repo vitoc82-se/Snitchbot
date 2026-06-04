@@ -164,6 +164,7 @@ async function ensureTables() {
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS food_rate            NUMERIC(4,2)`;
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS weapon_rate          NUMERIC(4,2)`;
   await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS pot_rate             NUMERIC(4,2)`;
+  await sql`ALTER TABLE player_lookup_bosses ADD COLUMN IF NOT EXISTS windfury             BOOLEAN`;
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -392,8 +393,6 @@ export default async function handler(req, res) {
         // WF proc confirms Windfury Totem was active in-combat for this player
         if (WF_PROC_IDS.has(cast.abilityGameID)) result.windfury = true;
       }
-      // WF satisfies the melee weapon buff requirement — persist via weapon_stone
-      if (result.windfury) result.weapon_stone = true;
       return { result, sourceId };
     }
 
@@ -442,7 +441,7 @@ export default async function handler(req, res) {
                  (actorMap[e.targetID] || '').toLowerCase() === cleanNameLower)
               );
               console.log(`[WF debug] ${cleanName} | boss ${boss.encId} | hasWF=${hasWF} | parsedWF=${parsed.result.windfury}`);
-              if (hasWF) { parsed.result.windfury = true; parsed.result.weapon_stone = true; }
+              if (hasWF) parsed.result.windfury = true;
             }
             consumableMap[boss.encId] = parsed.result;
           }
@@ -558,7 +557,8 @@ export default async function handler(req, res) {
           consume_score, consume_max,
           enchant_mainhand, enchant_head, enchant_shoulder, enchant_chest,
           enchant_legs, enchant_bracer, enchant_gloves, enchant_score,
-          flask_rate, battle_elix_rate, guardian_elix_rate, food_rate, weapon_rate, pot_rate
+          flask_rate, battle_elix_rate, guardian_elix_rate, food_rate, weapon_rate, pot_rate,
+          windfury
         ) VALUES (
           ${playerId}, ${enc.zoneId}, ${enc.zoneName}, ${enc.encId}, ${enc.bossName},
           ${ranking?.reportCode ?? null}, ${ranking?.bestSpec ?? null},
@@ -575,7 +575,8 @@ export default async function handler(req, res) {
           ${cons?.enchant_shoulder ?? null}, ${cons?.enchant_chest    ?? null},
           ${cons?.enchant_legs     ?? null}, ${cons?.enchant_bracer   ?? null},
           ${cons?.enchant_gloves   ?? null}, ${cons?.enchantScore     ?? null},
-          ${flaskRate}, ${battleElRate}, ${guardianElRate}, ${foodRate}, ${weaponRate}, ${potRate}
+          ${flaskRate}, ${battleElRate}, ${guardianElRate}, ${foodRate}, ${weaponRate}, ${potRate},
+          ${cons?.windfury ?? null}
         )
         ON CONFLICT (player_id, encounter_id) DO UPDATE SET
           report_code = EXCLUDED.report_code, best_spec = EXCLUDED.best_spec,
@@ -594,7 +595,8 @@ export default async function handler(req, res) {
           enchant_gloves = EXCLUDED.enchant_gloves, enchant_score = EXCLUDED.enchant_score,
           flask_rate = EXCLUDED.flask_rate, battle_elix_rate = EXCLUDED.battle_elix_rate,
           guardian_elix_rate = EXCLUDED.guardian_elix_rate, food_rate = EXCLUDED.food_rate,
-          weapon_rate = EXCLUDED.weapon_rate, pot_rate = EXCLUDED.pot_rate
+          weapon_rate = EXCLUDED.weapon_rate, pot_rate = EXCLUDED.pot_rate,
+          windfury = EXCLUDED.windfury
       `;
     }
 
