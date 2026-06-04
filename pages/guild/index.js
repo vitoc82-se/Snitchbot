@@ -173,7 +173,7 @@ function ProgressBar({ done, total }) {
   return (
     <div style={{ marginTop: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.8rem', color: '#666', marginBottom: '.35rem' }}>
-        <span>Fetching member data…</span>
+        <span>Scanning guild — batching WCL queries…</span>
         <span style={{ color: '#f5c842' }}>{done} / {total}</span>
       </div>
       <div style={{ height: 4, background: '#1a1a1a', borderRadius: 2, overflow: 'hidden' }}>
@@ -361,71 +361,77 @@ export default function GuildPage() {
       return;
     }
 
-    // 2. Initialise rows
-    const rows = roster.map(m => ({ ...m, fetchStatus: 'pending' }));
+    // 2. Initialise rows + mark all as fetching
+    const rows = roster.map(m => ({ ...m, fetchStatus: 'fetching' }));
     setMembers(rows);
     setProgress({ done: 0, total: roster.length });
     setPhase('scanning');
 
-    // 3. Batch fetch members BATCH_SIZE at a time
-    let doneCount = 0;
-    for (let i = 0; i < roster.length; i += BATCH_SIZE) {
-      const batch = roster.slice(i, i + BATCH_SIZE);
+    // 3. Check cache — split into fresh (skip) and stale/new (need scan)
+    const toScan = [];
+    for (const m of roster) {
+      const cached = await fetch(
+        `/api/lookup?name=${encodeURIComponent(m.name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
+      ).then(r => r.json()).catch(() => ({ status: 'not_found' }));
 
-      await Promise.all(batch.map(async (m) => {
-        // Mark as fetching
-        setMembers(prev => prev.map(r => r.name === m.name ? { ...r, fetchStatus: 'fetching' } : r));
+      if (cached.status === 'done' && !cached.stale) {
+        const summary = computeSummary(cached.bosses);
+        setMembers(prev => prev.map(r => r.name === m.name
+          ? { ...r, fetchStatus: 'done', role: cached.profile.role, ...summary }
+          : r
+        ));
+        setProgress(prev => ({ ...prev, done: prev.done + 1 }));
+      } else {
+        toScan.push(m);
+      }
+    }
 
-        try {
-          // Check cache first — skip fetch if fresh
-          const cached = await fetch(
-            `/api/lookup?name=${encodeURIComponent(m.name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
-          ).then(r => r.json());
+    // 4. Batch-scan all remaining members via the efficient guild scan endpoint
+    if (toScan.length > 0) {
+      try {
+        const scanRes = await fetch('/api/guild/scan', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ members: toScan, serverSlug: server, serverRegion: region }),
+        });
+        const scanBody = await scanRes.json().catch(() => ({}));
 
-          if (cached.status === 'done' && !cached.stale) {
-            const summary = computeSummary(cached.bosses);
-            setMembers(prev => prev.map(r => r.name === m.name
-              ? { ...r, fetchStatus: 'done', role: cached.profile.role, ...summary }
+        if (!scanRes.ok) {
+          // Mark all unscan members as error
+          setMembers(prev => prev.map(r =>
+            toScan.find(m => m.name === r.name)
+              ? { ...r, fetchStatus: 'error', error: scanBody.error || 'Scan failed' }
               : r
-            ));
-            return;
-          }
+          ));
+        } else {
+          // Load fresh data for scanned members from DB
+          await Promise.all(toScan.map(async (m) => {
+            const fresh = await fetch(
+              `/api/lookup?name=${encodeURIComponent(m.name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
+            ).then(r => r.json()).catch(() => ({ status: 'error' }));
 
-          // Trigger fresh WCL fetch
-          const fetchRes = await fetch('/api/lookup/fetch', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ name: m.name, serverSlug: server, serverRegion: region }),
-          });
-
-          const fresh = await fetch(
-            `/api/lookup?name=${encodeURIComponent(m.name)}&server=${encodeURIComponent(server)}&region=${encodeURIComponent(region)}`
-          ).then(r => r.json());
-
-          if (fresh.status === 'done') {
-            const summary = computeSummary(fresh.bosses);
-            setMembers(prev => prev.map(r => r.name === m.name
-              ? { ...r, fetchStatus: 'done', role: fresh.profile.role, ...summary }
-              : r
-            ));
-          } else {
-            setMembers(prev => prev.map(r => r.name === m.name
-              ? { ...r, fetchStatus: 'error', error: fresh.error || 'No data' }
-              : r
-            ));
-          }
-        } catch (err) {
-          setMembers(prev => prev.map(r => r.name === m.name
+            if (fresh.status === 'done') {
+              const summary = computeSummary(fresh.bosses);
+              setMembers(prev => prev.map(r => r.name === m.name
+                ? { ...r, fetchStatus: 'done', role: fresh.profile.role, ...summary }
+                : r
+              ));
+            } else {
+              setMembers(prev => prev.map(r => r.name === m.name
+                ? { ...r, fetchStatus: fresh.status === 'error' ? 'error' : 'error', error: fresh.error || 'No WCL data' }
+                : r
+              ));
+            }
+            setProgress(prev => ({ ...prev, done: prev.done + 1 }));
+          }));
+        }
+      } catch (err) {
+        setMembers(prev => prev.map(r =>
+          toScan.find(m => m.name === r.name)
             ? { ...r, fetchStatus: 'error', error: err.message }
             : r
-          ));
-        }
-      }));
-
-      doneCount += batch.length;
-      setProgress({ done: doneCount, total: roster.length });
-      // Small pause between batches to avoid WCL rate limits
-      if (i + BATCH_SIZE < roster.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
+        ));
+      }
     }
 
     setPhase('done');
