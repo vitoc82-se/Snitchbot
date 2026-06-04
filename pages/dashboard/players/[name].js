@@ -25,7 +25,7 @@ export default function PlayerDetail() {
   }, [session, name]);
 
   if (status === 'loading' || !name) return null;
-  if (!session) return <div className="container"><p style={{ marginTop: '3rem', color: '#888' }}>Not logged in.</p></div>;
+  if (!session) return <div className="container"><p style={{ marginTop: '3rem', color: '#8a7a60' }}>Not logged in.</p></div>;
 
   const first = raids[0]?.bosses?.[0]?.attempts?.[0];
   const cls   = first?.class;
@@ -36,17 +36,17 @@ export default function PlayerDetail() {
       <div className="container">
         <div style={{ marginBottom: '1.5rem' }}>
           {selectedRaid
-            ? <button className="subtle-link" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888', fontSize: '.9rem' }}
+            ? <button className="subtle-link" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a7a60', fontSize: '.9rem' }}
                 onClick={() => setSelected(null)}>← Back to raids</button>
             : <Link href="/dashboard" className="subtle-link">← Dashboard</Link>
           }
         </div>
 
         <h1 style={{ color: classColor(cls) }}>{name}</h1>
-        {first && <p style={{ color: '#888', marginTop: '.25rem' }}>{first.class} · {first.role}</p>}
+        {first && <p style={{ color: '#8a7a60', marginTop: '.25rem' }}>{first.class} · {first.role}</p>}
 
         {raids.length === 0
-          ? <p style={{ color: '#666', marginTop: '1.5rem' }}>No raid history found.</p>
+          ? <p style={{ color: '#6a5c44', marginTop: '1.5rem' }}>No raid history found.</p>
           : !selectedRaid
             ? <RaidList raids={raids} onSelect={setSelected} />
             : <RaidDetail raid={selectedRaid} mandatory={mandatory} />
@@ -81,14 +81,14 @@ function RaidList({ raids, onSelect }) {
           return (
             <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onSelect(r)}>
               <td>{r.title || r.wcl_code}</td>
-              <td style={{ color: '#666', fontSize: '.82rem' }}>{new Date(r.created_at).toLocaleDateString()}</td>
-              <td style={{ textAlign: 'center', color: '#888' }}>{r.bosses.length}</td>
+              <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>{new Date(r.created_at).toLocaleDateString()}</td>
+              <td style={{ textAlign: 'center', color: '#8a7a60' }}>{r.bosses.length}</td>
               <td style={{ textAlign: 'center' }}>
                 <span style={{ color: scoreColor(avgScore, avgMax) }}>
                   {avgScore.toFixed(1)}/{avgMax.toFixed(1)}
                 </span>
               </td>
-              <td style={{ color: '#555', fontSize: '.82rem' }}>Details →</td>
+              <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>Details →</td>
             </tr>
           );
         })}
@@ -128,7 +128,7 @@ function RaidDetail({ raid, mandatory }) {
           {rows.map(r => (
             <tr key={r.boss}>
               <td style={{ whiteSpace: 'nowrap' }}>{r.boss}</td>
-              <td style={{ textAlign: 'center', color: r.isKill ? '#4caf50' : '#888' }}>{r.result}</td>
+              <td style={{ textAlign: 'center', color: r.isKill ? '#5aad6f' : '#8a7a60' }}>{r.result}</td>
               {PRE_COLS.map(c => {
                 const wbType = weaponBuffType(r.ref);
                 const na = (c.key === 'weapon_oil'   && wbType !== 'oil')
@@ -136,7 +136,7 @@ function RaidDetail({ raid, mandatory }) {
                 const val = r.ref[c.key];
                 return (
                   <td key={c.key} style={{ textAlign: 'center',
-                    color: na ? '#555' : val ? '#4caf50' : '#e05555' }}>
+                    color: na ? '#6a5c44' : val ? '#5aad6f' : '#c45a4a' }}>
                     {na ? '—' : val ? '✓' : '✗'}
                   </td>
                 );
@@ -144,12 +144,12 @@ function RaidDetail({ raid, mandatory }) {
               {POT_COLS.map(c => {
                 const val = r.ref[c.key] || 0;
                 return (
-                  <td key={c.key} style={{ textAlign: 'center', color: val > 0 ? '#4caf50' : '#555' }}>
+                  <td key={c.key} style={{ textAlign: 'center', color: val > 0 ? '#5aad6f' : '#6a5c44' }}>
                     {val > 0 ? val : '—'}
                   </td>
                 );
               })}
-              <td style={{ textAlign: 'center', color: r.s === r.mx ? '#4caf50' : r.s === 0 ? '#e05555' : '#f5c842', fontWeight: 'bold' }}>
+              <td style={{ textAlign: 'center', color: r.s === r.mx ? '#5aad6f' : r.s === 0 ? '#c45a4a' : '#f5c842', fontWeight: 'bold' }}>
                 {r.s}/{r.mx}
               </td>
             </tr>
@@ -161,9 +161,9 @@ function RaidDetail({ raid, mandatory }) {
 }
 
 function scoreColor(score, max) {
-  if (!max) return '#888';
+  if (!max) return '#8a7a60';
   const pct = score / max;
-  if (pct >= 1)   return '#4caf50';
+  if (pct >= 1)   return '#5aad6f';
   if (pct >= 0.7) return '#f5c842';
-  return '#e05555';
+  return '#c45a4a';
 }

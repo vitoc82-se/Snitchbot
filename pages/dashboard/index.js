@@ -65,7 +65,7 @@ export default function Dashboard() {
   if (status === 'loading') return null;
   if (!session) return (
     <div className="container">
-      <p style={{ marginTop: '3rem', color: '#888' }}>
+      <p style={{ marginTop: '3rem', color: '#8a7a60' }}>
         <button className="btn" onClick={() => signIn('discord')}>Login with Discord</button>
         {' '}to view your dashboard.
       </p>
@@ -95,7 +95,7 @@ export default function Dashboard() {
 
         {tab === 'reports' && (
           reports.length === 0
-            ? <p style={{ color: '#666' }}>No saved reports yet. Analyze a log and click Save Report.</p>
+            ? <p style={{ color: '#6a5c44' }}>No saved reports yet. Analyze a log and click Save Report.</p>
             : (
               <>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '.75rem' }}>
@@ -144,19 +144,19 @@ export default function Dashboard() {
                           )}
                         </td>
                         <td><code>{r.wcl_code}</code></td>
-                        <td style={{ color: '#666', fontSize: '.82rem' }}>{raidDate}</td>
+                        <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>{raidDate}</td>
                         <td style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }} onClick={e => e.stopPropagation()}>
                           <Link href={`/reports/${r.wcl_code}`} className="subtle-link">View →</Link>
                           <button
                             onClick={e => reanalyzeReport(e, r.id)}
                             disabled={reanalyzing.has(r.id)}
-                            style={{ background: 'none', border: 'none', color: reanalyzing.has(r.id) ? '#555' : '#888', cursor: reanalyzing.has(r.id) ? 'default' : 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
+                            style={{ background: 'none', border: 'none', color: reanalyzing.has(r.id) ? '#6a5c44' : '#8a7a60', cursor: reanalyzing.has(r.id) ? 'default' : 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
                             title="Re-fetch from WCL with latest detection logic">
                             {reanalyzing.has(r.id) ? '↻ Refreshing…' : '↻ Refresh'}
                           </button>
                           <button
                             onClick={e => deleteReport(e, r.id)}
-                            style={{ background: 'none', border: 'none', color: '#555', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
+                            style={{ background: 'none', border: 'none', color: '#6a5c44', cursor: 'pointer', fontSize: '.82rem', padding: '0 .25rem' }}
                             title="Delete report">
                             Delete
                           </button>
@@ -173,7 +173,7 @@ export default function Dashboard() {
         {tab === 'guilds' && (
           guilds.length === 0
             ? (
-              <p style={{ color: '#666' }}>
+              <p style={{ color: '#6a5c44' }}>
                 No guild scans yet. Go to <Link href="/guild" style={{ color: '#f5c842' }}>Guild Lookup</Link> to scan your roster.
               </p>
             ) : (
@@ -191,9 +191,9 @@ export default function Dashboard() {
                   {guilds.map(g => (
                     <tr key={`${g.guildName}-${g.server}-${g.region}`}>
                       <td style={{ fontWeight: 600, color: '#f5c842' }}>{g.guildName}</td>
-                      <td style={{ color: '#888', fontSize: '.85rem' }}>{g.server} ({g.region})</td>
-                      <td style={{ textAlign: 'center', color: '#888' }}>{g.memberCount}</td>
-                      <td style={{ color: '#666', fontSize: '.82rem' }}>
+                      <td style={{ color: '#8a7a60', fontSize: '.85rem' }}>{g.server} ({g.region})</td>
+                      <td style={{ textAlign: 'center', color: '#8a7a60' }}>{g.memberCount}</td>
+                      <td style={{ color: '#6a5c44', fontSize: '.82rem' }}>
                         {g.fetchedAt ? new Date(g.fetchedAt).toLocaleDateString() : '—'}
                       </td>
                       <td>
@@ -223,7 +223,7 @@ export default function Dashboard() {
               ))}
             </div>
             {players.length === 0
-              ? <p style={{ color: '#666' }}>No player data yet. Save a report first.</p>
+              ? <p style={{ color: '#6a5c44' }}>No player data yet. Save a report first.</p>
               : (
                 <table className="player-table">
                   <thead>
@@ -248,8 +248,8 @@ export default function Dashboard() {
                             </Link>
                           </td>
                           <td style={{ color: classColor(p.class) }}>{p.class}</td>
-                          <td style={{ color: '#888', fontSize: '.85rem' }}>{p.role}</td>
-                          <td style={{ textAlign: 'center', color: '#888' }}>{p.appearances}</td>
+                          <td style={{ color: '#8a7a60', fontSize: '.85rem' }}>{p.role}</td>
+                          <td style={{ textAlign: 'center', color: '#8a7a60' }}>{p.appearances}</td>
                           <td style={{ textAlign: 'center' }}>
                             <span style={{ color: scoreColor(p.avg_score, p.avg_max) }}>
                               {p.avg_score}/{p.avg_max}
@@ -277,15 +277,15 @@ export default function Dashboard() {
 function ConsistencyBadge({ avg, max }) {
   const pct = max > 0 ? avg / max : 0;
   const label = `Avg score: ${avg}/${max}`;
-  if (pct >= 0.75) return <span title={label} style={{ color: '#4caf50', fontSize: '1.1rem' }}>✓</span>;
+  if (pct >= 0.75) return <span title={label} style={{ color: '#5aad6f', fontSize: '1.1rem' }}>✓</span>;
   if (pct >= 0.5)  return <span title={label} style={{ color: '#f5c842', fontSize: '1.1rem' }}>~</span>;
-  return                  <span title={label} style={{ color: '#e05555', fontSize: '1.1rem' }}>✗</span>;
+  return                  <span title={label} style={{ color: '#c45a4a', fontSize: '1.1rem' }}>✗</span>;
 }
 
 function scoreColor(score, max) {
-  if (!max) return '#888';
+  if (!max) return '#8a7a60';
   const pct = score / max;
-  if (pct >= 1)   return '#4caf50';
+  if (pct >= 1)   return '#5aad6f';
   if (pct >= 0.7) return '#f5c842';
-  return '#e05555';
+  return '#c45a4a';
 }

@@ -31,13 +31,13 @@ function PotionLeaderboard({ rows }) {
                 const color = classColor(p.class);
                 return (
                   <tr key={p.name} className={p.total > 0 ? 'row-good' : 'row-bad'}>
-                    <td className="center pot-rank-col" style={{ color: '#666' }}>{i + 1}</td>
+                    <td className="center pot-rank-col" style={{ color: '#6a5c44' }}>{i + 1}</td>
                     <td className="player-name" style={{ color }}>{p.name}</td>
                     {POT_BOARD_COLS.map(c => (
                       <td key={c.key} className="center">
                         {p[c.key] > 0
                           ? <span className="check">{p[c.key]}×</span>
-                          : <span style={{ color: '#444' }}>—</span>}
+                          : <span style={{ color: '#4a3e2c' }}>—</span>}
                       </td>
                     ))}
                     <td className="center">

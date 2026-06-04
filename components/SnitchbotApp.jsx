@@ -32,15 +32,15 @@ function PlayerLookupTeaser() {
   };
 
   const selectStyle = {
-    width: '100%', background: '#0a0a0a', color: '#ccc',
-    border: '1px solid #2a2a2a', borderRadius: 4,
-    padding: '.45rem .6rem', fontSize: '.82rem', cursor: 'pointer',
+    width: '100%', background: '#131008', color: '#e8dcc8',
+    border: '1px solid #2a2218', borderRadius: 5,
+    padding: '.45rem .6rem', fontSize: '.85rem', cursor: 'pointer',
   };
 
   const inputStyle = {
     width: '100%', fontSize: '.88rem',
-    background: '#111', border: '1px solid #2a2a2a',
-    color: '#ddd', borderRadius: 4, padding: '.45rem .65rem',
+    background: '#131008', border: '1px solid #2a2218',
+    color: '#e8dcc8', borderRadius: 5, padding: '.45rem .65rem',
   };
 
   return (
@@ -188,7 +188,9 @@ export default function SnitchbotApp({ initialCode }) {
       <div className="container">
         <div className="top-nav">
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <span className="nav-logo">Snitchbot</span>
+            <span className="nav-logo">
+              <span className="nav-logo-mark">✦</span>Snitchbot
+            </span>
           </Link>
 
           <div className="nav-center">
@@ -228,14 +230,24 @@ export default function SnitchbotApp({ initialCode }) {
           </div>
         </div>
         {/* ── Tool cards ───────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginTop: '.5rem', marginBottom: '1.5rem' }}>
 
           {/* Log Analyzer */}
-          <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: 8, padding: '1.25rem' }}>
-            <div style={{ marginBottom: '.6rem' }}>
-              <div style={{ color: '#f5c842', fontWeight: 700, fontSize: '1rem' }}>Log Analyzer</div>
-              <div style={{ color: '#555', fontSize: '.8rem', marginTop: '.2rem' }}>
-                Paste a Warcraft Logs URL to instantly see who was missing buffs, elixirs, food and pots on every pull.
+          <div style={{
+            background: '#131008', border: '1px solid #2a2218', borderRadius: 10, padding: '1.5rem',
+            position: 'relative', overflow: 'hidden',
+            transition: 'border-color .2s, box-shadow .2s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,200,66,.3)'; e.currentTarget.style.boxShadow = '0 0 24px rgba(245,200,66,.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2218'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <div style={{ marginBottom: '.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.3rem' }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f5c842', flexShrink: 0, display: 'inline-block' }} />
+                <span style={{ color: '#f5c842', fontWeight: 700, fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.1em' }}>Log Analyzer</span>
+              </div>
+              <div style={{ color: '#8a7a60', fontSize: '.85rem', lineHeight: 1.55 }}>
+                Paste a Warcraft Logs URL to see who was missing buffs, elixirs, food and pots on every pull.
               </div>
             </div>
             <div className="input-row" style={{ margin: 0 }}>
@@ -248,16 +260,26 @@ export default function SnitchbotApp({ initialCode }) {
                 style={{ fontSize: '.88rem' }}
               />
               <button className="btn" onClick={analyze} disabled={loading}>
-                {loading ? 'Analyzing…' : 'Check'}
+                {loading ? 'Analyzing…' : 'Check →'}
               </button>
             </div>
           </div>
 
           {/* Player Lookup */}
-          <div style={{ background: '#0d0d0d', border: '1px solid #1e1e1e', borderRadius: 8, padding: '1.25rem' }}>
-            <div style={{ marginBottom: '.6rem' }}>
-              <div style={{ color: '#a335ee', fontWeight: 700, fontSize: '1rem' }}>Player Lookup</div>
-              <div style={{ color: '#555', fontSize: '.8rem', marginTop: '.2rem' }}>
+          <div style={{
+            background: '#131008', border: '1px solid #2a2218', borderRadius: 10, padding: '1.5rem',
+            position: 'relative', overflow: 'hidden',
+            transition: 'border-color .2s, box-shadow .2s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(245,200,66,.3)'; e.currentTarget.style.boxShadow = '0 0 24px rgba(245,200,66,.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2218'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <div style={{ marginBottom: '.85rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '.4rem', marginBottom: '.3rem' }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f5c842', flexShrink: 0, display: 'inline-block' }} />
+                <span style={{ color: '#f5c842', fontWeight: 700, fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.1em' }}>Player Lookup</span>
+              </div>
+              <div style={{ color: '#8a7a60', fontSize: '.85rem', lineHeight: 1.55 }}>
                 Search any player by name to see their WCL rankings and consumable usage across every TBC boss.
               </div>
             </div>

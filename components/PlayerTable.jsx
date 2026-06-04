@@ -68,7 +68,7 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                     const s  = score(p, mandatory);
                     const mx = maxScore(p, mandatory);
                     const pct = mx ? s / mx : 0;
-                    const scoreColor = pct >= 1 ? '#4caf50' : pct >= 0.6 ? '#f5c842' : '#e05555';
+                    const scoreColor = pct >= 1 ? '#5aad6f' : pct >= 0.6 ? '#f5c842' : '#c45a4a';
                     return (
                       <tr key={p.name}
                         className={isPrepared(p, mandatory) ? 'row-good' : 'row-bad'}

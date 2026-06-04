@@ -67,7 +67,7 @@ export default function Settings() {
           <Link href="/" className="subtle-link">← Back</Link>
         </div>
         <h1>Settings</h1>
-        <p style={{ color: '#888', marginTop: '.25rem', marginBottom: '2rem' }}>
+        <p style={{ color: '#8a7a60', marginTop: '.25rem', marginBottom: '2rem' }}>
           Only checked buffs count toward a player's score in your view.
         </p>
 
