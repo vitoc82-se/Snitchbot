@@ -56,7 +56,7 @@ const POTIONS = [
   { name: 'Super Mana Potion',      key: 'mana_potion',        ids: [28499] },
   { name: 'Major Mana Potion',      key: 'mana_potion',        ids: [17531] },
   { name: 'Fel Mana Potion',        key: 'mana_potion',        ids: [38929, 41617, 41618] },
-  { name: 'Dark Rune',              key: 'mana_potion',        ids: [20520] },
+  { name: 'Dark Rune',              key: 'mana_potion',        ids: [27869] },
   { name: 'Demonic Rune',           key: 'mana_potion',        ids: [16666] },
   { name: 'Healthstone',            key: 'healthstone',        ids: [27237, 27232, 27230, 11730, 11729, 6263, 6262], note: 'tracked, not scored' },
 ];
