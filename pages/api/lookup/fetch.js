@@ -474,6 +474,7 @@ export default async function handler(req, res) {
           return [
             `ci_${k.encId}: events(dataType: CombatantInfo, startTime: ${k.fightStart}, endTime: ${k.fightEnd}) { data }`,
             `ca_${k.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${k.fightEnd}) { data }`,
+            `wf_${k.encId}: events(dataType: Buffs,          startTime: ${k.fightStart}, endTime: ${k.fightEnd}, limit: 10000) { data }`,
           ];
         }).join('\n');
 
@@ -495,20 +496,30 @@ export default async function handler(req, res) {
         const auraNameMap = {};
         (report.buffs?.data?.auras || []).forEach(a => { auraNameMap[a.guid] = a.name; });
 
+        const cleanNameLowerRate = cleanName.toLowerCase();
         for (const k of uniqueEncs) {
           if (!rateMap[k.encId]) continue;
           const ciEvents = report[`ci_${k.encId}`]?.data || [];
           const caEvents = report[`ca_${k.encId}`]?.data || [];
-          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanName.toLowerCase());
+          const wfEvents = report[`wf_${k.encId}`]?.data || [];
+          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
           if (!parsed) continue;
           const c = parsed.result;
+          if (!c.windfury) {
+            const hasWF = wfEvents.some(e =>
+              e.type === 'applybuff' && e.abilityGameID === 25584 &&
+              ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLowerRate ||
+               (actorMap[e.targetID] || '').toLowerCase() === cleanNameLowerRate)
+            );
+            if (hasWF) c.windfury = true;
+          }
           const r = rateMap[k.encId];
           r.total++;
           if (c.flask)                                       r.flask++;
           if (c.battle_elixir)                               r.battle_elixir++;
           if (c.guardian_elixir)                             r.guardian_elixir++;
           if (c.food)                                        r.food++;
-          if (c.weapon_oil || c.weapon_stone)                r.weapon++;
+          if (c.weapon_oil || c.weapon_stone || c.windfury)  r.weapon++;
           if (c.haste_potion > 0 || c.destruction_potion > 0 || c.mana_potion > 0) r.pot++;
         }
       })
