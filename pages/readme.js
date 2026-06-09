@@ -22,6 +22,7 @@ const POT_LABEL = Object.fromEntries(POT_COLS.map(c => [c.key, c.label]));
 const FOOD_IDS_LIST = [
   { name: 'Skullfish Soup', id: 33825, note: 'Buff name lacks "well fed" — detected by spell ID' },
   { name: 'Enlightened',    id: 43722, note: 'Detected by spell ID' },
+  { name: 'Well Fed',       id: 43764, note: 'Detected by spell ID — confirmed from live log' },
 ];
 
 const FLASK_IDS_LIST = [
