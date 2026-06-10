@@ -41,6 +41,7 @@ const ELIXIRS = [
   { name: 'Greater Arcane Elixir',        type: 'Battle',   id: 17539 },
   { name: 'Elixir of the Mongoose',       type: 'Battle',   id: 17538 },
   { name: 'Elixir of Ironskin',           type: 'Guardian', id: 39628 },
+  { name: 'Earthen Elixir',              type: 'Guardian', id: 39626 },
   { name: 'Elixir of Major Defense',      type: 'Guardian', id: 28502 },
   { name: 'Elixir of Major Mageblood',    type: 'Guardian', id: 28509 },
   { name: 'Elixir of Draenic Wisdom',     type: 'Guardian', id: 39627 },
