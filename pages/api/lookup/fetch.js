@@ -452,7 +452,11 @@ export default async function handler(req, res) {
     const killsByReport = {}; // code → [{ encId, fightStart, fightEnd }]
     for (const enc of withKills) {
       if (!enc.allKills?.length) continue;
-      for (const kill of enc.allKills) {
+      // Cap to 3 most recent kills to limit WCL API calls in the consistency rate loop
+      const recentKills = enc.allKills
+        .sort((a, b) => b.fightStart - a.fightStart)
+        .slice(0, 3);
+      for (const kill of recentKills) {
         if (!killsByReport[kill.code]) killsByReport[kill.code] = [];
         killsByReport[kill.code].push({ encId: enc.encId, ...kill });
       }
@@ -472,7 +476,7 @@ export default async function handler(req, res) {
           return [
             `ci_${k.encId}: events(dataType: CombatantInfo, startTime: ${k.fightStart}, endTime: ${k.fightEnd}) { data }`,
             `ca_${k.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${k.fightEnd}) { data }`,
-            `wf_${k.encId}: events(dataType: Buffs,          startTime: ${k.fightStart}, endTime: ${k.fightEnd}, limit: 10000) { data }`,
+            // WF buff events omitted from consistency rate queries — WF is detected on best kill only
           ];
         }).join('\n');
 
@@ -499,19 +503,9 @@ export default async function handler(req, res) {
           if (!rateMap[k.encId]) continue;
           const ciEvents = report[`ci_${k.encId}`]?.data || [];
           const caEvents = report[`ca_${k.encId}`]?.data || [];
-          const wfEvents = report[`wf_${k.encId}`]?.data || [];
           const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
           if (!parsed) continue;
           const c = parsed.result;
-          if (!c.windfury) {
-            const hasWF = wfEvents.some(e =>
-              e.type === 'applybuff' && e.abilityGameID === 25584 &&
-              ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLowerRate ||
-               (actorMap[e.targetID] || '').toLowerCase() === cleanNameLowerRate)
-            );
-            if (hasWF) c.windfury = true;
-          } else {
-          }
           const r = rateMap[k.encId];
           r.total++;
           if (c.flask)                                       r.flask++;
