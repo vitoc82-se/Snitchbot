@@ -16,12 +16,16 @@ import sql from '../../../lib/db';
 
 const CACHE_TTL_DAYS = 7;
 
+// 25-man raid zone IDs — must match RAID_25_ZONE_IDS in pages/lookup/index.js
+const RAID_25_ZONE_IDS = new Set([1048, 1056]); // Gruul/Mag, SSC/TK
+
 // Mirrors calcCombinedRating() from pages/lookup/index.js (kept in sync manually)
 // Weights: WCL 50% · Enchants 30% · Consumes 20%
 function calcCombinedRating(bosses) {
   const withRank    = bosses.filter(b => Number(b.total_kills) > 0 && b.rank_percent    != null);
-  const withCons    = bosses.filter(b => b.consume_score != null && Number(b.consume_max) > 0);
-  const withEnchant = bosses.filter(b => b.enchant_score != null);
+  // Consume + enchant: 25-man only
+  const withCons    = bosses.filter(b => b.consume_score != null && Number(b.consume_max) > 0 && RAID_25_ZONE_IDS.has(Number(b.zone_id)));
+  const withEnchant = bosses.filter(b => b.enchant_score != null && RAID_25_ZONE_IDS.has(Number(b.zone_id)));
   if (!withRank.length && !withCons.length && !withEnchant.length) return null;
 
   const avgRank    = withRank.length
@@ -123,7 +127,7 @@ export default async function handler(req, res) {
     }
 
     const bosses = await sql`
-      SELECT rank_percent, consume_score, consume_max, enchant_score, total_kills
+      SELECT rank_percent, consume_score, consume_max, enchant_score, total_kills, zone_id
       FROM player_lookup_bosses
       WHERE player_id = ${profile.id}
     `;
@@ -132,15 +136,15 @@ export default async function handler(req, res) {
     const rating = calcCombinedRating(bosses);
     const tier   = rating ? getTier(rating.combined) : null;
 
-    // Avg consume score as X.X/Y.Y (matches website display)
-    const withCons = bosses.filter(b => b.consume_score != null && Number(b.consume_max) > 0);
+    // Avg consume score as X.X/Y.Y — 25-man only
+    const withCons = bosses.filter(b => b.consume_score != null && Number(b.consume_max) > 0 && RAID_25_ZONE_IDS.has(Number(b.zone_id)));
     const avgConsumeScore = withCons.length
       ? withCons.reduce((s, b) => s + Number(b.consume_score), 0) / withCons.length : null;
     const avgConsumeMax = withCons.length
       ? withCons.reduce((s, b) => s + Number(b.consume_max),  0) / withCons.length : null;
 
-    // Avg enchant score (0–100 weighted)
-    const withEnch = bosses.filter(b => b.enchant_score != null);
+    // Avg enchant score (0–100 weighted) — 25-man only
+    const withEnch = bosses.filter(b => b.enchant_score != null && RAID_25_ZONE_IDS.has(Number(b.zone_id)));
     const avgEnchantScore = withEnch.length
       ? Math.round(withEnch.reduce((s, b) => s + Number(b.enchant_score), 0) / withEnch.length) : null;
 

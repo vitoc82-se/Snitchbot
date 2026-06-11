@@ -7,6 +7,10 @@ import { classColor } from '../../lib/scoring';
 // ── Combined rating ──────────────────────────────────────────────────────────
 // 60% avg WCL rank % + 40% consumable compliance rate → WoW quality tier
 
+// 25-man raid zone IDs — Karazhan (1047) and Zul'Aman are excluded from consume scoring.
+// Add new zone IDs here as future 25-man content is released on Fresh servers.
+const RAID_25_ZONE_IDS = new Set([1048, 1056]); // Gruul/Mag, SSC/TK
+
 // Enchant slot weights — sum to 100
 // Weapon+Head+Shoulder = 60 → Rare (blue), matching user's "blue rank minimum" rule
 const ENCHANT_WEIGHTS = { enchantMainhand: 25, enchantHead: 20, enchantShoulder: 15,
@@ -19,8 +23,9 @@ function calcEnchantPct(b) {
 
 function calcCombinedRating(bosses) {
   const withRank    = bosses.filter(b => b.totalKills > 0 && b.rankPercent != null);
-  const withCons    = bosses.filter(b => b.consumeScore != null && b.consumeMax > 0);
-  const withEnchant = bosses.filter(b => b.enchantScore != null);
+  // Consume and enchant scores: 25-man raids only
+  const withCons    = bosses.filter(b => b.consumeScore != null && b.consumeMax > 0 && RAID_25_ZONE_IDS.has(b.zoneId));
+  const withEnchant = bosses.filter(b => b.enchantScore != null && RAID_25_ZONE_IDS.has(b.zoneId));
   if (!withRank.length && !withCons.length && !withEnchant.length) return null;
 
   const avgRank    = withRank.length
@@ -559,7 +564,8 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
   const [consistencyMode, setConsistencyMode] = useState(false);
   const zones = groupByZone(bosses).sort((a, b) => b.bosses[0].zoneId - a.bosses[0].zoneId);
   const withKills = bosses.filter(b => b.totalKills > 0);
-  const withCons  = bosses.filter(b => b.consumeScore != null);
+  // Consume score: 25-man only
+  const withCons  = bosses.filter(b => b.consumeScore != null && RAID_25_ZONE_IDS.has(b.zoneId));
 
   const avgPct   = withKills.length
     ? Math.round(withKills.reduce((s, b) => s + (b.rankPercent ?? 0), 0) / withKills.length)
@@ -626,7 +632,8 @@ function PlayerProfile({ profile, bosses, onRefresh, refreshing, autoUpdating })
       {/* Stat cards */}
       {(() => {
         const rating      = calcCombinedRating(bosses);
-        const withEnchant = bosses.filter(b => b.enchantScore != null);
+        // Enchant score: 25-man only (consistent with consume)
+        const withEnchant = bosses.filter(b => b.enchantScore != null && RAID_25_ZONE_IDS.has(b.zoneId));
         const avgEnchant  = withEnchant.length
           ? Math.round(withEnchant.reduce((s, b) => s + b.enchantScore, 0) / withEnchant.length)
           : null;
