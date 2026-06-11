@@ -17,6 +17,7 @@ export default async function handler(req, res) {
       settingsRows,
       lookupAgg,
       recentLookups,
+      botGuilds,
     ] = await Promise.all([
       getStats(),
 
@@ -79,6 +80,14 @@ export default async function handler(req, res) {
         WHERE fetch_status = 'done'
         ORDER BY fetched_at DESC
         LIMIT 20
+      `.catch(() => []),
+
+      // Bot installs — distinct guilds + channel breakdown
+      sql`
+        SELECT guild_id, COUNT(*) AS channel_count
+        FROM bot_guild_channels
+        GROUP BY guild_id
+        ORDER BY MIN(added_at) DESC
       `.catch(() => []),
     ]);
 
@@ -154,6 +163,14 @@ export default async function handler(req, res) {
 
         // Boss leaderboard
         bossList,
+
+        // Discord bot installs
+        botGuildCount:    botGuilds.length,
+        botConfigured:    botGuilds.filter(g => Number(g.channel_count) > 0).length,
+        botGuilds:        botGuilds.map(g => ({
+          guildId:      g.guild_id,
+          channelCount: Number(g.channel_count),
+        })),
 
         // Player lookup
         lookupTotal:  Number(lookupAgg[0]?.total_lookups ?? 0),

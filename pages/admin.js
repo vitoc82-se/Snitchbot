@@ -165,6 +165,36 @@ export default function AdminPage() {
               </>
             )}
 
+            {/* ── Discord bot installs ─────────────────────────────────── */}
+            <div className="admin-stats-row" style={{ marginTop: '1.5rem' }}>
+              <StatCard number={db?.botGuildCount} label="Bot Installs"      sub="servers with bot" color="#5865F2" />
+              <StatCard number={db?.botConfigured} label="Channels Set"      sub="servers with !setchannel" color={db?.botConfigured > 0 ? '#5aad6f' : '#8a7a60'} />
+            </div>
+
+            {(db?.botGuilds?.length > 0) && (
+              <>
+                <SectionTitle sub="Servers that have used !setchannel">Bot Channel Config</SectionTitle>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left' }}>Guild ID</th>
+                        <th style={{ textAlign: 'left' }}>Channels configured</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.botGuilds.map((g, i) => (
+                        <tr key={i}>
+                          <td style={{ fontFamily: 'monospace', fontSize: '.82rem', color: '#8a7a60' }}>{g.guildId}</td>
+                          <td style={{ color: '#5aad6f', fontSize: '.82rem' }}>{g.channelCount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
             {/* ── Registered users ──────────────────────────────────────── */}
             <SectionTitle sub={`${db?.users?.length} Discord accounts · ${db?.usersWithCustomSettings} have saved custom settings`}>
               Registered Users
