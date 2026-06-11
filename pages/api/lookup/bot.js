@@ -132,20 +132,35 @@ export default async function handler(req, res) {
     const rating = calcCombinedRating(bosses);
     const tier   = rating ? getTier(rating.combined) : null;
 
+    // Avg consume score as X.X/Y.Y (matches website display)
+    const withCons = bosses.filter(b => b.consume_score != null && Number(b.consume_max) > 0);
+    const avgConsumeScore = withCons.length
+      ? withCons.reduce((s, b) => s + Number(b.consume_score), 0) / withCons.length : null;
+    const avgConsumeMax = withCons.length
+      ? withCons.reduce((s, b) => s + Number(b.consume_max),  0) / withCons.length : null;
+
+    // Avg enchant score (0–100 weighted)
+    const withEnch = bosses.filter(b => b.enchant_score != null);
+    const avgEnchantScore = withEnch.length
+      ? Math.round(withEnch.reduce((s, b) => s + Number(b.enchant_score), 0) / withEnch.length) : null;
+
     const serverDisplay = `${cleanSlug.charAt(0).toUpperCase() + cleanSlug.slice(1)} ${cleanRegion}`;
     const baseUrl       = (process.env.NEXTAUTH_URL || 'https://snitchbot.app').replace(/\/$/, '');
     const profileUrl    = `${baseUrl}/lookup?name=${encodeURIComponent(cleanName)}&server=${encodeURIComponent(cleanSlug)}&region=${encodeURIComponent(cleanRegion)}`;
 
     return res.json({
-      found:     true,
-      name:      profile.name,
-      className: profile.class_name,
-      role:      profile.role,
-      guildName: profile.guild_name,
-      server:    serverDisplay,
-      tier:      tier?.name  ?? null,
-      tierColor: tier?.color ?? 0x9d9d9d,
+      found:           true,
+      name:            profile.name,
+      className:       profile.class_name,
+      role:            profile.role,
+      guildName:       profile.guild_name,
+      server:          serverDisplay,
+      tier:            tier?.name  ?? null,
+      tierColor:       tier?.color ?? 0x9d9d9d,
       rating,
+      avgConsumeScore: avgConsumeScore != null ? Math.round(avgConsumeScore * 10) / 10 : null,
+      avgConsumeMax:   avgConsumeMax   != null ? Math.round(avgConsumeMax   * 10) / 10 : null,
+      avgEnchantScore,
       profileUrl,
     });
 
