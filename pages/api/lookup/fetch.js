@@ -17,7 +17,7 @@ import { wclQuery, wclFreshQuery } from '../../../lib/wcl';
 import {
   PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS,
-  POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS, WF_PROC_IDS,
+  POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS,
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
@@ -82,7 +82,7 @@ function detectBuff(buffName, buffId, selfApplied) {
   if (n.includes('well fed'))   return 'food';
   if (FOOD_IDS.has(buffId))     return 'food';
   // Windfury comes from Shaman totem — not self-applied, check before selfApplied gate
-  if (n.includes('windfury') || WF_ENCHANT_IDS.has(buffId)) return 'windfury';
+  if (n.includes('windfury')) return 'windfury';
   if (!selfApplied)             return null;
   if (n.includes('flask') || FLASK_IDS.has(buffId)) return 'flask';
   if (GUARDIAN_IDS.has(buffId)) return 'guardian_elixir';
@@ -390,8 +390,6 @@ export default async function handler(req, res) {
         if (String(cast.sourceID) !== String(sourceId)) continue;
         const cat = POTION_CAST_IDS[cast.abilityGameID];
         if (cat && typeof result[cat] === 'number') result[cat]++;
-        // WF proc confirms Windfury Totem was active in-combat for this player
-        if (WF_PROC_IDS.has(cast.abilityGameID)) result.windfury = true;
       }
       return { result, sourceId };
     }
@@ -476,7 +474,7 @@ export default async function handler(req, res) {
           return [
             `ci_${k.encId}: events(dataType: CombatantInfo, startTime: ${k.fightStart}, endTime: ${k.fightEnd}) { data }`,
             `ca_${k.encId}: events(dataType: Casts,          startTime: ${prePot},         endTime: ${k.fightEnd}) { data }`,
-            // WF buff events omitted from consistency rate queries — WF is detected on best kill only
+            `wf_${k.encId}: events(dataType: Buffs,          startTime: ${k.fightStart}, endTime: ${k.fightEnd}, limit: 10000) { data }`,
           ];
         }).join('\n');
 
@@ -501,11 +499,18 @@ export default async function handler(req, res) {
         const cleanNameLowerRate = cleanName.toLowerCase();
         for (const k of uniqueEncs) {
           if (!rateMap[k.encId]) continue;
-          const ciEvents = report[`ci_${k.encId}`]?.data || [];
-          const caEvents = report[`ca_${k.encId}`]?.data || [];
-          const parsed   = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
+          const ciEvents  = report[`ci_${k.encId}`]?.data || [];
+          const caEvents  = report[`ca_${k.encId}`]?.data || [];
+          const wfEvents  = report[`wf_${k.encId}`]?.data || [];
+          const parsed    = parseFightCons(ciEvents, caEvents, actorMap, auraNameMap, cleanNameLowerRate);
           if (!parsed) continue;
           const c = parsed.result;
+          // Mirror best-kill WF detection: check applybuff 25584 events for this player
+          if (!c.windfury && wfEvents.some(e =>
+            e.type === 'applybuff' && e.abilityGameID === 25584 &&
+            ((actorMap[e.sourceID] || '').toLowerCase() === cleanNameLowerRate ||
+             (actorMap[e.targetID] || '').toLowerCase() === cleanNameLowerRate)
+          )) c.windfury = true;
           const r = rateMap[k.encId];
           r.total++;
           if (c.flask)                                       r.flask++;

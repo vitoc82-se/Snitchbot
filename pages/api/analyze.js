@@ -1,7 +1,7 @@
 import {
   WCL_TOKEN_URL, WCL_API_URL, PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS, POTION_CAST_IDS, SCROLL_IDS, WEAPON_ENCHANT_IDS,
-  WF_ENCHANT_IDS, WF_PROC_IDS,
+  WF_ENCHANT_IDS,
 } from '../../lib/constants';
 import { trackAnalysis, redisGet, redisSet } from '../../lib/redis';
 
@@ -13,7 +13,7 @@ function detectBuff(buffName, buffId, selfApplied) {
   if (n.includes('well fed')) return 'food';
   if (FOOD_IDS.has(buffId))   return 'food';
   // Windfury comes from a Shaman totem — not self-applied, must check before the selfApplied gate
-  if (n.includes('windfury') || WF_ENCHANT_IDS.has(buffId)) return 'windfury';
+  if (n.includes('windfury')) return 'windfury';
   if (!selfApplied) return null;
   if (n.includes('flask'))       return 'flask';
   if (FLASK_IDS.has(buffId))     return 'flask';

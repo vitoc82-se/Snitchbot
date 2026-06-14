@@ -21,7 +21,7 @@ import { getToken as getJWT } from 'next-auth/jwt';
 import {
   PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS,
-  POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS, WF_PROC_IDS,
+  POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS,
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
 
@@ -54,7 +54,7 @@ function specToRole(spec) {
 function detectBuff(buffName, buffId, selfApplied) {
   const n = (buffName || '').toLowerCase();
   if (n.includes('well fed') || FOOD_IDS.has(buffId)) return 'food';
-  if (n.includes('windfury') || WF_ENCHANT_IDS.has(buffId)) return 'windfury';
+  if (n.includes('windfury')) return 'windfury';
   if (!selfApplied) return null;
   if (n.includes('flask') || FLASK_IDS.has(buffId)) return 'flask';
   if (GUARDIAN_IDS.has(buffId)) return 'guardian_elixir';
