@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useSession, signIn } from 'next-auth/react';
@@ -6,11 +6,12 @@ import { useSession, signIn } from 'next-auth/react';
 export default function LootPage() {
   const { data: session, status } = useSession();
   const [sessions, setSessions] = useState([]);
-  const [json, setJson]         = useState('');
+  const [file, setFile]         = useState(null);
   const [title, setTitle]       = useState('');
   const [loading, setLoading]   = useState(false);
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState('');
+  const fileRef = useRef();
 
   const loadSessions = () =>
     fetch('/api/loot/sessions').then(r => r.json()).then(setSessions).catch(() => {});
@@ -21,19 +22,19 @@ export default function LootPage() {
     e.preventDefault();
     setError('');
     setResult(null);
-    if (!json.trim()) { setError('Paste your SoftRes JSON first.'); return; }
+    if (!file) { setError('Select a file first.'); return; }
     setLoading(true);
     try {
-      const res = await fetch('/api/loot/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ json: json.trim(), title: title.trim() }),
-      });
+      const form = new FormData();
+      form.append('file', file);
+      if (title.trim()) form.append('title', title.trim());
+      const res = await fetch('/api/loot/import', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Import failed.'); return; }
       setResult(data);
-      setJson('');
+      setFile(null);
       setTitle('');
+      if (fileRef.current) fileRef.current.value = '';
       loadSessions();
     } catch (err) {
       setError(err.message);
@@ -91,17 +92,23 @@ export default function LootPage() {
               />
             </div>
             <div style={{ marginBottom: '1rem' }}>
-              <label className="loot-label">SoftRes JSON</label>
-              <p style={{ color: 'var(--text3)', fontSize: '.78rem', marginBottom: '.4rem' }}>
-                In-game: type <code>/sr export</code> and paste the output below.
+              <label className="loot-label">SoftRes log file</label>
+              <p style={{ color: 'var(--text3)', fontSize: '.78rem', marginBottom: '.6rem' }}>
+                Upload the <code>.docx</code> or <code>.json</code> file exported from SoftRes.
               </p>
-              <textarea
-                className="loot-input loot-textarea"
-                value={json}
-                onChange={e => setJson(e.target.value)}
-                placeholder='[{"itemID":28508,"awardedTo":"Vitok-Thunderstrike",...}]'
-                spellCheck={false}
-              />
+              <label className="loot-file-label">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".docx,.json"
+                  style={{ display: 'none' }}
+                  onChange={e => setFile(e.target.files[0] || null)}
+                />
+                <span className="loot-file-btn">Choose file</span>
+                <span className="loot-file-name">
+                  {file ? file.name : 'No file selected'}
+                </span>
+              </label>
             </div>
             {error && <div className="loot-error">{error}</div>}
             {result && (
