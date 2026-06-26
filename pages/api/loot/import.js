@@ -48,17 +48,28 @@ export default async function handler(req, res) {
   return importEntries(entries, title?.trim(), token.dbId, res);
 }
 
-// Extract JSON array from a DOCX (the JSON lives in word/document.xml as text nodes)
+// Extract JSON array from a DOCX (JSON is stored as text across <w:t> runs)
 async function parseDocx(buffer) {
   const { default: JSZip } = await import('jszip');
   const zip = await JSZip.loadAsync(buffer);
   const xml = await zip.file('word/document.xml').async('string');
-  // Strip all XML tags and collect text
-  const text = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  // Find the JSON array — starts with [{ and ends with }]
-  const match = text.match(/\[\s*\{.*\}\s*\]/s);
-  if (!match) throw new Error('No JSON array found in document');
-  return JSON.parse(match[0]);
+
+  // Concatenate only <w:t> text nodes — don't strip all tags (introduces spaces mid-JSON)
+  const text = [...xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)]
+    .map(m => m[1])
+    .join('')
+    // Unescape XML entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+
+  // Find the JSON array
+  const start = text.indexOf('[');
+  const end   = text.lastIndexOf(']');
+  if (start === -1 || end === -1 || end <= start) throw new Error('No JSON array found in document');
+  return JSON.parse(text.slice(start, end + 1));
 }
 
 async function importEntries(entries, title, userId, res) {
