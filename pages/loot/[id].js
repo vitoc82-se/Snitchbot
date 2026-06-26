@@ -33,7 +33,7 @@ function groupByNight(entries) {
     if (!map.has(key)) map.set(key, { date: e.raid_date, entries: [] });
     map.get(key).entries.push(e);
   }
-  return [...map.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+  return [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
 function buildLeaderboard(entries) {
