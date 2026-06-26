@@ -9,9 +9,11 @@ export default function LootPage() {
   const [file, setFile]         = useState(null);
   const [title, setTitle]       = useState('');
   const [loading, setLoading]   = useState(false);
+  const [elapsed, setElapsed]   = useState(0);
   const [result, setResult]     = useState(null);
   const [error, setError]       = useState('');
-  const fileRef = useRef();
+  const fileRef    = useRef();
+  const timerRef   = useRef();
 
   const loadSessions = () =>
     fetch('/api/loot/sessions').then(r => r.json()).then(setSessions).catch(() => {});
@@ -24,6 +26,8 @@ export default function LootPage() {
     setResult(null);
     if (!file) { setError('Select a file first.'); return; }
     setLoading(true);
+    setElapsed(0);
+    timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
     try {
       const form = new FormData();
       form.append('file', file);
@@ -39,6 +43,7 @@ export default function LootPage() {
     } catch (err) {
       setError(err.message);
     } finally {
+      clearInterval(timerRef.current);
       setLoading(false);
     }
   };
@@ -120,8 +125,15 @@ export default function LootPage() {
               </div>
             )}
             <button className="btn" type="submit" disabled={loading}>
-              {loading ? 'Importing…' : 'Import Log'}
+              {loading
+                ? `Importing… ${elapsed}s`
+                : 'Import Log'}
             </button>
+            {loading && (
+              <p style={{ color: 'var(--text3)', fontSize: '.78rem', marginTop: '.5rem' }}>
+                Large files take 1–3 minutes — hang tight.
+              </p>
+            )}
           </form>
         </div>
 

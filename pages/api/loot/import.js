@@ -132,35 +132,75 @@ async function importEntries(entries, title, userId, res) {
 
   await sql`INSERT INTO loot_sessions (id, user_id, title) VALUES (${sessionId}, ${userId}, ${sessionTitle})`;
 
-  let inserted = 0;
+  // Collect all rows across all sessions for a single bulk insert via unnest
+  const allRows = [];
   for (const { sid, raidName, raidDate, entries: sEntries } of tbcSessions) {
-    const rows = sEntries.map(e => ({
-      session_id:        sessionId,
-      soft_res_id:       sid,
-      raid_name:         raidName,
-      raid_date:         raidDate,
-      item_id:           e.itemID,
-      item_name:         stripBrackets(e.itemLink || ''),
-      awarded_to:        stripRealm(e.awardedTo || ''),
-      awarded_by:        stripRealm(e.awardedBy || ''),
-      winner_class:      e.winnerClass  || null,
-      winning_roll_type: e.winningRollType || null,
-      is_os:             !!e.OS,
-      is_sr:             !!e.SR,
-      received:          e.received !== false,
-      checksum:          e.checksum || null,
-    }));
+    for (const e of sEntries) {
+      allRows.push({
+        session_id:        sessionId,
+        soft_res_id:       sid,
+        raid_name:         raidName,
+        raid_date:         raidDate,
+        item_id:           e.itemID,
+        item_name:         stripBrackets(e.itemLink || ''),
+        awarded_to:        stripRealm(e.awardedTo || ''),
+        awarded_by:        stripRealm(e.awardedBy || ''),
+        winner_class:      e.winnerClass  || null,
+        winning_roll_type: e.winningRollType || null,
+        is_os:             !!e.OS,
+        is_sr:             !!e.SR,
+        received:          e.received !== false,
+        checksum:          e.checksum || null,
+      });
+    }
+  }
 
-    for (let i = 0; i < rows.length; i += 100) {
-      const chunk = rows.slice(i, i + 100);
-      try {
-        await sql`INSERT INTO loot_entries ${sql(chunk)} ON CONFLICT (session_id, checksum) DO NOTHING`;
-        inserted += chunk.length;
-      } catch {
-        for (const row of chunk) {
-          try { await sql`INSERT INTO loot_entries ${sql([row])} ON CONFLICT DO NOTHING`; inserted++; } catch {}
-        }
-      }
+  let inserted = 0;
+  // Batch in chunks of 500 using unnest — works with neon tagged templates
+  for (let i = 0; i < allRows.length; i += 500) {
+    const chunk = allRows.slice(i, i + 500);
+    const p_session_id        = chunk.map(r => r.session_id);
+    const p_soft_res_id       = chunk.map(r => r.soft_res_id);
+    const p_raid_name         = chunk.map(r => r.raid_name);
+    const p_raid_date         = chunk.map(r => r.raid_date);
+    const p_item_id           = chunk.map(r => r.item_id);
+    const p_item_name         = chunk.map(r => r.item_name);
+    const p_awarded_to        = chunk.map(r => r.awarded_to);
+    const p_awarded_by        = chunk.map(r => r.awarded_by);
+    const p_winner_class      = chunk.map(r => r.winner_class);
+    const p_winning_roll_type = chunk.map(r => r.winning_roll_type);
+    const p_is_os             = chunk.map(r => r.is_os);
+    const p_is_sr             = chunk.map(r => r.is_sr);
+    const p_received          = chunk.map(r => r.received);
+    const p_checksum          = chunk.map(r => r.checksum);
+
+    try {
+      await sql`
+        INSERT INTO loot_entries
+          (session_id, soft_res_id, raid_name, raid_date, item_id, item_name,
+           awarded_to, awarded_by, winner_class, winning_roll_type,
+           is_os, is_sr, received, checksum)
+        SELECT * FROM unnest(
+          ${p_session_id}::text[],
+          ${p_soft_res_id}::text[],
+          ${p_raid_name}::text[],
+          ${p_raid_date}::timestamptz[],
+          ${p_item_id}::int[],
+          ${p_item_name}::text[],
+          ${p_awarded_to}::text[],
+          ${p_awarded_by}::text[],
+          ${p_winner_class}::int[],
+          ${p_winning_roll_type}::text[],
+          ${p_is_os}::bool[],
+          ${p_is_sr}::bool[],
+          ${p_received}::bool[],
+          ${p_checksum}::text[]
+        )
+        ON CONFLICT (session_id, checksum) DO NOTHING
+      `;
+      inserted += chunk.length;
+    } catch (e) {
+      console.error('Batch insert error:', e.message);
     }
   }
 
