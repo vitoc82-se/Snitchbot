@@ -496,3 +496,31 @@ code { background: var(--surface2) !important; border-color: var(--border) !impo
 .player-table th { padding: .5rem .75rem; text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border2); }
 .player-table td { padding: .55rem .75rem; border-bottom: 1px solid var(--border2); }
 .player-table tbody tr:hover { background: rgba(245,200,66,.025); }
+
+/* ── Loot history ─────────────────────────────────────────────────────────── */
+.loot-upload-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 1.5rem; max-width: 640px; }
+.loot-label { display: block; color: var(--text2); font-size: .85rem; margin-bottom: .35rem; }
+.loot-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: .9rem; padding: .5rem .75rem; box-sizing: border-box; font-family: inherit; margin-bottom: .75rem; }
+.loot-input:focus { outline: none; border-color: var(--gold-dim); }
+.loot-textarea { resize: vertical; min-height: 110px; font-family: monospace; font-size: .8rem; }
+.loot-error { background: rgba(196,90,74,.1); color: #e07060; border: 1px solid rgba(196,90,74,.25); border-radius: 4px; padding: .5rem .75rem; margin-bottom: .75rem; font-size: .85rem; }
+.loot-success { background: rgba(90,173,111,.08); color: var(--green); border: 1px solid rgba(90,173,111,.2); border-radius: 4px; padding: .5rem .75rem; margin-bottom: .75rem; font-size: .85rem; }
+.loot-share-box { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: .75rem 1rem; }
+.loot-search { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: .875rem; padding: .38rem .75rem; width: 220px; font-family: inherit; }
+.loot-search:focus { outline: none; border-color: var(--gold-dim); }
+.loot-night { margin-bottom: .5rem; border: 1px solid var(--border2); border-radius: 5px; overflow: hidden; }
+.loot-night-header { display: flex; align-items: center; gap: .75rem; padding: .65rem 1rem; background: var(--surface2); cursor: pointer; user-select: none; }
+.loot-night-header:hover { background: rgba(245,200,66,.03); }
+.loot-night-arrow { color: var(--text3); font-size: .75rem; width: .8rem; flex-shrink: 0; }
+.loot-night-date { color: var(--text); font-weight: 600; font-size: .88rem; }
+.loot-night-raid { color: var(--gold-dim); font-size: .78rem; background: rgba(245,200,66,.07); border: 1px solid var(--gold-border); border-radius: 3px; padding: 1px 7px; }
+.loot-night-count { color: var(--text3); font-size: .8rem; margin-left: auto; }
+.loot-table { margin: 0; }
+.loot-table th { font-size: .7rem; }
+.loot-item-link { color: var(--gold); text-decoration: none; font-size: .88rem; }
+.loot-item-link:hover { text-decoration: underline; }
+.loot-row-unreceived { opacity: .45; }
+.loot-badge { font-size: .7rem; font-weight: bold; letter-spacing: .04em; padding: 1px 6px; border-radius: 3px; }
+.loot-badge-ms { background: rgba(90,173,111,.12); color: var(--green); border: 1px solid rgba(90,173,111,.25); }
+.loot-badge-os { background: rgba(138,122,96,.1); color: var(--text3); border: 1px solid var(--border); }
+.loot-badge-sr { background: rgba(245,200,66,.1); color: var(--gold); border: 1px solid var(--gold-border); }
