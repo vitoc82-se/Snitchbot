@@ -271,7 +271,6 @@ export default function LootView() {
                               <td>
                                 <a
                                   href={`https://www.wowhead.com/tbc/item=${e.item_id}`}
-                                  data-wowhead={`item=${e.item_id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="loot-item-link"
