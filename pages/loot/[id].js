@@ -109,8 +109,7 @@ export default function LootView() {
     if (q) {
       return (
         e.awarded_to.toLowerCase().includes(q) ||
-        e.item_name.toLowerCase().includes(q) ||
-        (e.awarded_by || '').toLowerCase().includes(q)
+        e.item_name.toLowerCase().includes(q)
       );
     }
     return true;
