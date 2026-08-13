@@ -197,6 +197,18 @@ export default function SnitchbotApp({ initialCode }) {
             <Link href="/lookup"  className="nav-link">Player Lookup</Link>
             <Link href="/compare" className="nav-link">Compare</Link>
             {session ? (
+              <Link href="/characters" className="nav-link">My Characters</Link>
+            ) : (
+              <span
+                className="nav-link"
+                onClick={() => signIn('discord')}
+                title="Login required for My Characters"
+                style={{ cursor: 'pointer', opacity: 0.45 }}
+              >
+                My Characters 🔒
+              </span>
+            )}
+            {session ? (
               <Link href="/guild" className="nav-link">Guild Lookup</Link>
             ) : (
               <span
