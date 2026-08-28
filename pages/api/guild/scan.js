@@ -38,6 +38,7 @@ const TBC_RANKING_ZONES = [
   { id: 1047, name: 'Karazhan'            },
   { id: 1048, name: 'Gruul / Magtheridon' },
   { id: 1056, name: 'SSC / TK'            },
+  { id: 1060, name: 'BT / Hyjal'          },
 ];
 
 const CHAR_BATCH = 3;  // players per Fresh API character query
