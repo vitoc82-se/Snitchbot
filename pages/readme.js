@@ -29,6 +29,7 @@ const FLASK_IDS_LIST = [
   { name: 'Flask of Distilled Wisdom',     id: 17627, note: 'Buff name lacks "flask" — detected by ID' },
   { name: 'Flask of Chromatic Resistance', id: 17629, note: 'Buff is "Chromatic Resistance" — detected by ID' },
   { name: 'Flask of Supreme Power',        id: 17628, note: '+150 spell damage — buff aura ID (not the item-use spell ID)' },
+  { name: 'Flask of Chromatic Wonder',     id: 42735, note: 'buff is "Chromatic Wonder" — detected by ID' },
   { name: 'Shattrath Flask of Relentless Assault', id: 41608, note: 'buff is "Relentless Assault of Shattrath" — detected by ID' },
   { name: 'Shattrath Flask of Fortification',      id: 41609, note: 'buff is "Fortification of Shattrath" — detected by ID' },
   { name: 'Shattrath Flask of Mighty Restoration', id: 41610, note: 'buff is "Mighty Restoration of Shattrath" — detected by ID' },
