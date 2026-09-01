@@ -30,12 +30,12 @@ const FLASK_IDS_LIST = [
   { name: 'Flask of Chromatic Resistance', id: 17629, note: 'Buff is "Chromatic Resistance" — detected by ID' },
   { name: 'Flask of Supreme Power',        id: 17628, note: '+150 spell damage — buff aura ID (not the item-use spell ID)' },
   { name: 'Flask of Chromatic Wonder',     id: 42735, note: 'buff is "Chromatic Wonder" — detected by ID' },
-  { name: 'Shattrath Flask of Relentless Assault', id: 41608, note: 'buff is "Relentless Assault of Shattrath" — detected by ID' },
-  { name: 'Shattrath Flask of Fortification',      id: 41609, note: 'buff is "Fortification of Shattrath" — detected by ID' },
-  { name: 'Shattrath Flask of Mighty Restoration', id: 41610, note: 'buff is "Mighty Restoration of Shattrath" — detected by ID' },
-  { name: 'Shattrath Flask of Supreme Power',      id: 41611, note: 'buff is "Supreme Power of Shattrath" — detected by ID' },
-  { name: 'Shattrath Flask of Pure Death',         id: 46837, note: 'buff is "Pure Death of Shattrath" — detected by ID' },
-  { name: 'Shattrath Flask of Blinding Light',     id: 46839, note: 'buff is "Blinding Light of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Relentless Assault', id: 41606, note: 'buff aura "Relentless Assault of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Fortification',      id: 41607, note: 'buff aura "Fortification of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Mighty Restoration', id: 41605, note: 'buff aura "Mighty Restoration of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Supreme Power',      id: 41604, note: 'buff aura "Supreme Power of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Pure Death',         id: 46838, note: 'buff aura "Pure Death of Shattrath" — detected by ID' },
+  { name: 'Shattrath Flask of Blinding Light',     id: 46840, note: 'buff aura "Blinding Light of Shattrath" — detected by ID' },
 ];
 
 const ELIXIRS = [
