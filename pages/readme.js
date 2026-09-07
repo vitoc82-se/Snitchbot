@@ -215,11 +215,17 @@ function HowItWorks() {
           <li>+1 point — Flask or Battle Elixir</li>
           <li>+1 point — Flask or Guardian Elixir</li>
           <li>+1 point — Food buff</li>
-          <li>+1 point — Used <em>at least one</em> relevant in-combat potion (max 1 point for the pot category, regardless of how many types apply to your role)</li>
+          <li>+1 point — Used <em>at least one</em> relevant in-combat potion (max 1 point for the pot category, regardless of how many types apply to your role) — <em>only on fights that lasted 60&nbsp;seconds or longer</em></li>
         </ul>
         <p>
           Because potions share a cooldown in TBC, only 1 point is awarded for the potion category — using a Destruction Potion, a Haste Potion, or a Mana Potion all give the same 1 point.
           The relevant potion types per class and role are shown in the table below.
+        </p>
+        <p>
+          <strong>Short fights don't require a potion.</strong> The first potion is normally saved for Bloodlust,
+          which can be delayed 30&nbsp;seconds or more into the pull, so on any fight shorter than <strong>60&nbsp;seconds</strong>
+          (a quick wipe) the potion is dropped from <em>both</em> the score and the max — nobody is penalised for not
+          potting before it would even make sense to. On a 40-second wipe a fully-prepped player scores 3/3, not 3/4.
         </p>
         <p>
           Healthstone, Weapon Oil, and Weapon Stone are shown in the table but <strong>do not affect the score by default</strong>.
@@ -232,6 +238,11 @@ function HowItWorks() {
           exists for them, their max goes up by 1. If none do, the pot category doesn't exist for them.
           A Warrior DPS, a Mage, a Holy Priest, and a Prot Warrior all have max 4 — the potion types differ
           but each contributes exactly 1 point to the max.
+        </p>
+        <p>
+          Fight length also affects the max: on fights shorter than <strong>60&nbsp;seconds</strong> the potion
+          category is dropped entirely, so the same player's max becomes 3 for that attempt. This is why you may
+          see a player at 3/3 on a fast wipe and 3/4 (or 4/4) on the longer pulls of the same boss.
         </p>
         <p>
           This means the score is <strong>fair</strong> — you're only judged on what actually applies to your class and role.
