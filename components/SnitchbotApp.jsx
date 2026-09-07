@@ -385,8 +385,10 @@ export default function SnitchbotApp({ initialCode }) {
                 )}
                 {potSkippers.length > 0 && (
                   <div className="summary">
-                    <h3 style={{ color: '#f5c842' }}>Skipped combat potion</h3>
-                    <p style={{ fontSize: '.82rem', color: '#9a9a9a', margin: '.15rem 0 .5rem' }}>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f5c842', margin: '0 0 .1rem' }}>
+                      Skipped combat potion
+                    </div>
+                    <p style={{ fontSize: '.82rem', color: '#9a9a9a', margin: '.15rem 0 .6rem' }}>
                       Came prepared, but used no potion on a fight lasting 60s or longer.
                     </p>
                     <ul>
@@ -394,7 +396,10 @@ export default function SnitchbotApp({ initialCode }) {
                         <li key={p.name}>
                           <strong style={{ color: classColor(p.class) }}>{p.name}</strong>
                           <span className="missing-tags">
-                            <span className="tag" style={{ borderColor: '#f5c842', color: '#f5c842' }}>No potion</span>
+                            <span style={{ display: 'inline-block', border: '1px solid #f5c842', color: '#f5c842',
+                                           borderRadius: '4px', padding: '1px 7px', fontSize: '.78rem', marginLeft: '6px' }}>
+                              No potion
+                            </span>
                           </span>
                         </li>
                       ))}
