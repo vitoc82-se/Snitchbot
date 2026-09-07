@@ -67,6 +67,7 @@ const POTIONS = [
   { name: 'Fel Mana Potion',        key: 'mana_potion',        ids: [38929, 41617, 41618] },
   { name: 'Dark Rune',              key: 'mana_potion',        ids: [27869] },
   { name: 'Demonic Rune',           key: 'mana_potion',        ids: [16666] },
+  { name: 'Ironshield Potion',      key: 'survival_potion',    ids: [28579, 28515], note: 'tank survival pot — counts for tanks' },
   { name: 'Healthstone',            key: 'healthstone',        ids: [27237, 27232, 27230, 11730, 11729, 6263, 6262], note: 'tracked, not scored' },
 ];
 
@@ -865,8 +866,8 @@ export function weaponBuffType(player)`}</CodeBlock>
               <tr><td>Mage / Warlock / Shadow Priest</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
               <tr><td>Shaman DPS / Druid DPS</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
               <tr><td>Healer (all classes)</td><td className="center">3</td><td className="center">+1 (Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Tank (non-Paladin)</td><td className="center">3</td><td className="center">+1 (Haste Pot)</td><td className="center"><strong>4</strong></td></tr>
-              <tr><td>Tank Paladin</td><td className="center">3</td><td className="center">+1 (Dest, Haste, or Mana Pot)</td><td className="center"><strong>4</strong></td></tr>
+              <tr><td>Tank (non-Paladin)</td><td className="center">3</td><td className="center">+1 (Haste or Ironshield Pot)</td><td className="center"><strong>4</strong></td></tr>
+              <tr><td>Tank Paladin</td><td className="center">3</td><td className="center">+1 (Dest, Haste, Mana, or Ironshield Pot)</td><td className="center"><strong>4</strong></td></tr>
               <tr><td>Any of the above + Weapon enabled</td><td className="center">3</td><td className="center">+pots +1</td><td className="center"><strong>5</strong></td></tr>
             </tbody>
           </table>

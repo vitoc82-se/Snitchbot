@@ -82,7 +82,7 @@ function emptyPlayer(name, cls, role) {
     flask: false, battle_elixir: false, guardian_elixir: false, food: false,
     scrolls: 0,
     haste_potion: 0, destruction_potion: 0,
-    mana_potion: 0, healthstone: 0,
+    mana_potion: 0, survival_potion: 0, healthstone: 0,
     weapon_oil: false, weapon_stone: false, windfury: false,
   };
 }
@@ -177,8 +177,8 @@ export default async function handler(req, res) {
         const cat = POTION_CAST_IDS[e.abilityGameID];
         if (!cat) return;
 
-        // Raid-wide totals (haste/dest/mana only — healthstone excluded)
-        if (cat !== 'healthstone') {
+        // Raid-wide totals (haste/dest/mana only — healthstone + survival excluded)
+        if (cat !== 'healthstone' && cat !== 'survival_potion') {
           const playerName = actorMap[e.sourceID];
           if (playerName && rosterByName[playerName]) {
             if (!raidPotionTotals[playerName]) {
