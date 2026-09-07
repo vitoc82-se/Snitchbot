@@ -1,5 +1,6 @@
-// TEMP DEBUG: inspect what a CombatantInfo snapshot exposes (resistances? stats?)
-// for a given fight. Usage: /api/debug_stats?code=XXXX  (optionally &boss=Mother)
+// TEMP DEBUG: inspect CombatantInfo for a fight — resistances? and aggregate the
+// unique item/gem/enchant/set IDs + a sample aura block so we can build a shadow
+// resistance table. Usage: /api/debug_stats?code=XXXX&boss=Mother
 async function getToken() {
   const credentials = Buffer.from(
     `${process.env.WCL_CLIENT_ID}:${process.env.WCL_CLIENT_SECRET}`
@@ -58,28 +59,25 @@ export default async function handler(req, res) {
   const events = d2?.reportData?.report?.events?.data || [];
   if (!events.length) return res.json({ fight: fight.name, note: 'no CombatantInfo events' });
 
-  // Union of every key seen on any event.
-  const allKeys = new Set();
-  events.forEach(e => Object.keys(e).forEach(k => allKeys.add(k)));
-  // Any key mentioning resistance, anywhere in the event tree (shallow scan of scalars + gear).
-  const resistKeys = [...allKeys].filter(k => /resist/i.test(k));
-
-  const sample = events[0];
-  const gearSample = (sample.gear || [])[0] || null;
-  // Scalars only, so the sample stays small and readable.
-  const scalarFields = {};
-  Object.entries(sample).forEach(([k, v]) => {
-    if (v === null || typeof v !== 'object') scalarFields[k] = v;
+  const items = new Set(), gems = new Set(), enchants = new Set(), sets = new Set(), auraIds = new Set();
+  events.forEach(e => {
+    (e.gear || []).forEach(g => {
+      if (g.id) items.add(g.id);
+      if (g.permanentEnchant) enchants.add(g.permanentEnchant);
+      if (g.setID) sets.add(g.setID);
+      (g.gems || []).forEach(gm => gm.id && gems.add(gm.id));
+    });
+    (e.auras || []).forEach(a => a.ability && auraIds.add(a.ability));
   });
 
   return res.json({
     fight: fight.name,
     playerCount: events.length,
-    allTopLevelKeys: [...allKeys].sort(),
-    resistKeysFound: resistKeys,
-    samplePlayer: actorMap[sample.sourceID] || sample.sourceID,
-    sampleScalarFields: scalarFields,
-    sampleGearItemKeys: gearSample ? Object.keys(gearSample) : [],
-    sampleGearItem: gearSample,
+    uniqueItemIds:    [...items].sort((a, b) => a - b),
+    uniqueGemIds:     [...gems].sort((a, b) => a - b),
+    uniqueEnchantIds: [...enchants].sort((a, b) => a - b),
+    uniqueSetIds:     [...sets].sort((a, b) => a - b),
+    uniqueAuraIds:    [...auraIds].sort((a, b) => a - b),
+    sampleAuras: (events[0].auras || []).slice(0, 8),
   });
 }
