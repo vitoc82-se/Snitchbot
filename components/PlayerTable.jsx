@@ -31,7 +31,7 @@ const PRE_COLS_DEF = [
   { key: 'scrolls',         label: 'Scrolls'       },
 ];
 
-export default function PlayerTable({ players, tableView = 'pre', mandatory = DEFAULT_MANDATORY, onPlayerClick }) {
+export default function PlayerTable({ players, tableView = 'pre', mandatory = DEFAULT_MANDATORY, showSR = false, onPlayerClick }) {
   const [expanded, setExpanded] = useState({});
 
   const groups = {};
@@ -48,7 +48,7 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
 
   const toggle = cls => setExpanded(prev => ({ ...prev, [cls]: !prev[cls] }));
 
-  const colCount = 1 + (tableView === 'pre' ? PRE_COLS_DEF.length : POT_COLS.length) + 2;
+  const colCount = 1 + (tableView === 'pre' ? PRE_COLS_DEF.length : POT_COLS.length) + 2 + (showSR ? 1 : 0);
 
   return (
     <div className="table-wrap">
@@ -62,6 +62,7 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
             }
             <th style={{ textAlign: 'center' }}>Prep</th>
             <th style={{ textAlign: 'center' }}>Potion</th>
+            {showSR && <th style={{ textAlign: 'center' }}>Shadow Res</th>}
           </tr>
         </thead>
         <tbody>
@@ -122,6 +123,14 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                         <td className="center">
                           <PotionPill p={p} mandatory={mandatory} />
                         </td>
+                        {showSR && (
+                          <td className="center">
+                            <span className="score-badge"
+                              style={{ color: (p.shadowResist || 0) >= 70 ? '#5aad6f' : (p.shadowResist || 0) > 0 ? '#f5c842' : '#c45a4a' }}>
+                              {p.shadowResist || 0}
+                            </span>
+                          </td>
+                        )}
                       </tr>
                     );
                   })

@@ -1,7 +1,7 @@
 import {
   WCL_TOKEN_URL, WCL_API_URL, PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS, POTION_CAST_IDS, SCROLL_IDS, WEAPON_ENCHANT_IDS,
-  WF_ENCHANT_IDS,
+  WF_ENCHANT_IDS, SHADOW_RESIST_ITEMS, SHADOW_RESIST_GEMS, SHADOW_PROTECTION_SR,
 } from '../../lib/constants';
 import { trackAnalysis, redisGet, redisSet } from '../../lib/redis';
 
@@ -84,6 +84,7 @@ function emptyPlayer(name, cls, role) {
     haste_potion: 0, destruction_potion: 0,
     mana_potion: 0, survival_potion: 0, healthstone: 0,
     weapon_oil: false, weapon_stone: false, windfury: false,
+    shadowResist: 0,
   };
 }
 
@@ -234,8 +235,15 @@ export default async function handler(req, res) {
         if (!playerMap[playerName]) {
           playerMap[playerName] = emptyPlayer(playerName, rosterEntry.type, roleMap[playerName] || 'dps');
         }
+        // Shadow resistance: buff (+70, same-school buffs don't stack so take
+        // presence, not sum) plus per-item and per-gem SR from the gear snapshot.
+        let buffSR = 0;
         (event.auras || []).forEach(aura => {
           const selfApplied = aura.source === event.sourceID;
+          const name = (auraMap[aura.ability] || aura.name || '').toLowerCase();
+          if (name.includes('shadow protection') || name.includes('shadow resistance')) {
+            buffSR = SHADOW_PROTECTION_SR;
+          }
           if (selfApplied && SCROLL_IDS.has(aura.ability)) {
             playerMap[playerName].scrolls++;
             return;
@@ -243,12 +251,16 @@ export default async function handler(req, res) {
           const cat = detectBuff(auraMap[aura.ability] || '', aura.ability, selfApplied);
           if (cat) playerMap[playerName][cat] = true;
         });
+        let gearSR = 0;
         (event.gear || []).forEach(slot => {
           const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
           if (cat) playerMap[playerName][cat] = true;
           // Windfury Totem shows as a weapon temporaryEnchant when active at pull time
           if (WF_ENCHANT_IDS.has(slot.temporaryEnchant)) playerMap[playerName].windfury = true;
+          gearSR += SHADOW_RESIST_ITEMS[slot.id] || 0;
+          (slot.gems || []).forEach(g => { gearSR += SHADOW_RESIST_GEMS[g.id] || 0; });
         });
+        playerMap[playerName].shadowResist = buffSR + gearSR;
       });
 
       // Merge cast-event potions

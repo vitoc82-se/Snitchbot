@@ -7,6 +7,7 @@ import PlayerPanel from './PlayerModal';
 import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
 import { isPrepReady, prepMissingList, potionStatus, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
+import { SHADOW_RESIST_FIGHTS } from '../lib/constants';
 
 const LOOKUP_SERVERS = [
   { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
@@ -367,7 +368,7 @@ export default function SnitchbotApp({ initialCode }) {
                   <button className={`tab${tableView === 'pre' ? ' active' : ''}`} onClick={() => setTableView('pre')}>Pre-Fight</button>
                   <button className={`tab${tableView === 'combat' ? ' active' : ''}`} onClick={() => setTableView('combat')}>In-Combat</button>
                 </div>
-                <PlayerTable players={players} tableView={tableView} mandatory={mandatory} onPlayerClick={p => setPanelPlayer(p)} />
+                <PlayerTable players={players} tableView={tableView} mandatory={mandatory} showSR={SHADOW_RESIST_FIGHTS.includes(boss?.name)} onPlayerClick={p => setPanelPlayer(p)} />
                 {unprepared.length > 0 && (
                   <div className="summary">
                     <h3>Not fully consumed</h3>
