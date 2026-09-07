@@ -274,12 +274,22 @@ export default async function handler(req, res) {
         }
       });
 
+      // Fight length — used to gate the in-combat potion check. Potions are
+      // popped mid-fight (typically on Bloodlust, which can be delayed well
+      // into the pull), so a short wipe before anyone would reasonably pot
+      // must not count as a missing potion. Stamp each player so the shared
+      // scoring helpers can apply the duration gate.
+      const durationMs = fight.endTime - fight.startTime;
+      const players = Object.values(playerMap);
+      players.forEach(p => { p.fightDurationMs = durationMs; });
+
       return {
         id: fight.id,
         name: fight.name,
         isKill: fight.kill,
         attempt,
-        players: Object.values(playerMap),
+        durationMs,
+        players,
       };
     });
 
