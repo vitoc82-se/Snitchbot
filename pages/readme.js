@@ -186,6 +186,13 @@ function HowItWorks() {
           <li><span className="check">2×</span> — For potions, shows how many times it was used during the raid.</li>
         </ul>
         <p>
+          Every row ends with two separate readouts, because pre-fight prep and in-combat potions are different things:
+        </p>
+        <ul>
+          <li><strong>Prep</strong> — the pre-fight readiness score (Flask, Elixirs, Food, and Weapon buffs if enabled). This is what decides whether a player counts as "ready". A fully-consumed player is <strong>3/3</strong>.</li>
+          <li><strong>Potion</strong> — a separate pill for the in-combat potion: <span className="check">2×</span> (used, with count), <span style={{ color: '#f5c842', fontWeight: 'bold' }}>none</span> (skipped on a fight ≥&nbsp;60s), or <span className="na-text">—</span> (short fight or no relevant pot). It never changes the Prep score.</li>
+        </ul>
+        <p>
           Click any player name to open a side panel showing their full breakdown across every boss and every attempt.
         </p>
       </Section>
@@ -193,59 +200,63 @@ function HowItWorks() {
       <Section title="How Scoring Works">
         <h3 className="readme-h3">The simple version</h3>
         <p>
-          Every player gets a score like <strong>4/4</strong> or <strong>2/5</strong>. The first number is
-          what they actually had. The second number is the maximum they could have earned. Higher is better.
-        </p>
-        <p>
-          The score colour tells you at a glance how they did:
+          Readiness is split into two independent buckets, because bringing your consumables and using a
+          potion mid-fight are different commitments:
         </p>
         <ul>
-          <li><span style={{ color: '#4caf50', fontWeight: 'bold' }}>Green</span> — Full score. Came fully prepared.</li>
-          <li><span style={{ color: '#f5c842', fontWeight: 'bold' }}>Yellow</span> — Partial. Missing one or two things.</li>
-          <li><span style={{ color: '#e05555', fontWeight: 'bold' }}>Red</span> — Low or zero. Significantly unprepared.</li>
+          <li><strong>Prep</strong> — the pre-fight score, like <strong>3/3</strong> or <strong>2/3</strong>. This is
+            everything that's active the moment the boss is pulled: Flask, Elixirs, Food (and Weapon buffs if enabled).
+            <em>This is the score that decides whether a player is "ready".</em></li>
+          <li><strong>Potion</strong> — a separate indicator for the in-combat potion. It's tracked and shown, but it
+            <em>never</em> changes the Prep score.</li>
         </ul>
         <p>
-          A player's entire row is also highlighted <span className="check">green</span> or <span className="cross">red</span> based
-          on whether they are fully prepared. The <strong>Slackers</strong> list at the bottom shows everyone
-          who is missing at least one mandatory buff.
+          The Prep colour tells you at a glance how they did:
+        </p>
+        <ul>
+          <li><span style={{ color: '#4caf50', fontWeight: 'bold' }}>Green</span> — Full prep. Came fully consumed.</li>
+          <li><span style={{ color: '#f5c842', fontWeight: 'bold' }}>Yellow</span> — Partial. Missing one thing.</li>
+          <li><span style={{ color: '#e05555', fontWeight: 'bold' }}>Red</span> — Missing multiple pre-fight buffs.</li>
+        </ul>
+        <p>
+          A player's row is highlighted <span className="check">green</span> or <span className="cross">red</span> on
+          their Prep alone. The bottom of the report has two lists: <strong>Not fully consumed</strong> (players missing
+          a pre-fight buff) and <strong>Skipped combat potion</strong> (players who came prepared but used no potion on a
+          long fight — a softer callout, not counted as unprepared).
         </p>
 
-        <h3 className="readme-h3">What earns points (default)</h3>
+        <h3 className="readme-h3">What earns Prep points (default)</h3>
         <ul>
           <li>+1 point — Flask or Battle Elixir</li>
           <li>+1 point — Flask or Guardian Elixir</li>
           <li>+1 point — Food buff</li>
-          <li>+1 point — Used <em>at least one</em> relevant in-combat potion (max 1 point for the pot category, regardless of how many types apply to your role) — <em>only on fights that lasted 60&nbsp;seconds or longer</em></li>
         </ul>
         <p>
-          Because potions share a cooldown in TBC, only 1 point is awarded for the potion category — using a Destruction Potion, a Haste Potion, or a Mana Potion all give the same 1 point.
-          The relevant potion types per class and role are shown in the table below.
-        </p>
-        <p>
-          <strong>Short fights don't require a potion.</strong> The first potion is normally saved for Bloodlust,
-          which can be delayed 30&nbsp;seconds or more into the pull, so on any fight shorter than <strong>60&nbsp;seconds</strong>
-          (a quick wipe) the potion is dropped from <em>both</em> the score and the max — nobody is penalised for not
-          potting before it would even make sense to. On a 40-second wipe a fully-prepped player scores 3/3, not 3/4.
-        </p>
-        <p>
-          Healthstone, Weapon Oil, and Weapon Stone are shown in the table but <strong>do not affect the score by default</strong>.
-          You can make weapon buffs count by enabling them in Settings.
+          A full Flask covers both elixir points. Default max Prep is <strong>3</strong> for everyone; enabling Weapon
+          buffs in Settings raises it to 4. Prep does not depend on class or role.
         </p>
 
-        <h3 className="readme-h3">Why the max score is different per player</h3>
+        <h3 className="readme-h3">How the Potion indicator works</h3>
         <p>
-          Whether a player has a relevant potion at all depends on their class and role. If any relevant potion
-          exists for them, their max goes up by 1. If none do, the pot category doesn't exist for them.
-          A Warrior DPS, a Mage, a Holy Priest, and a Prot Warrior all have max 4 — the potion types differ
-          but each contributes exactly 1 point to the max.
+          The Potion pill shows one of three states per fight:
+        </p>
+        <ul>
+          <li><span className="check">used</span> — the player used at least one relevant potion (the pill shows the count).
+            Because potions share a cooldown in TBC, Destruction, Haste, and Mana potions all count the same. The relevant
+            types per class and role are in the table below.</li>
+          <li><span style={{ color: '#f5c842', fontWeight: 'bold' }}>none</span> — the fight lasted <strong>60&nbsp;seconds
+            or longer</strong> and the player used no relevant potion.</li>
+          <li><span className="na-text">—</span> — not expected: either the fight was shorter than 60&nbsp;seconds, or the
+            class/role has no relevant potion.</li>
+        </ul>
+        <p>
+          <strong>Short fights don't expect a potion.</strong> The first potion is normally saved for Bloodlust, which can
+          be delayed 30&nbsp;seconds or more into the pull, so on any fight shorter than <strong>60&nbsp;seconds</strong>
+          (a quick wipe) the Potion pill just shows — and nobody is flagged for it.
         </p>
         <p>
-          Fight length also affects the max: on fights shorter than <strong>60&nbsp;seconds</strong> the potion
-          category is dropped entirely, so the same player's max becomes 3 for that attempt. This is why you may
-          see a player at 3/3 on a fast wipe and 3/4 (or 4/4) on the longer pulls of the same boss.
-        </p>
-        <p>
-          This means the score is <strong>fair</strong> — you're only judged on what actually applies to your class and role.
+          Healthstone, Weapon Oil, and Weapon Stone are shown in the table but <strong>do not affect Prep by default</strong>.
+          You can make weapon buffs count by enabling them in Settings.
         </p>
       </Section>
 

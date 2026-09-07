@@ -6,7 +6,7 @@ import PlayerTable from './PlayerTable';
 import PlayerPanel from './PlayerModal';
 import RankingsView from './RankingsView';
 import LoadingStatus, { LOAD_STEP_DELAYS } from './LoadingStatus';
-import { isPrepared, missingList, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
+import { isPrepReady, prepMissingList, potionStatus, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 
 const LOOKUP_SERVERS = [
   { label: 'Thunderstrike — EU', slug: 'thunderstrike',  region: 'EU' },
@@ -179,8 +179,9 @@ export default function SnitchbotApp({ initialCode }) {
   const boss    = results?.bosses?.[bossIndex];
   const attempt = boss?.attempts?.[attemptIdx];
   const players = attempt?.players || [];
-  const prepared   = players.filter(p => isPrepared(p, mandatory));
-  const unprepared = players.filter(p => !isPrepared(p, mandatory));
+  const prepared    = players.filter(p => isPrepReady(p, mandatory));
+  const unprepared  = players.filter(p => !isPrepReady(p, mandatory));
+  const potSkippers = players.filter(p => potionStatus(p, mandatory) === 'missing');
 
   return (
     <>
@@ -369,13 +370,31 @@ export default function SnitchbotApp({ initialCode }) {
                 <PlayerTable players={players} tableView={tableView} mandatory={mandatory} onPlayerClick={p => setPanelPlayer(p)} />
                 {unprepared.length > 0 && (
                   <div className="summary">
-                    <h3>Slackers</h3>
+                    <h3>Not fully consumed</h3>
                     <ul>
                       {unprepared.map(p => (
                         <li key={p.name}>
                           <strong style={{ color: classColor(p.class) }}>{p.name}</strong>
                           <span className="missing-tags">
-                            {missingList(p, mandatory).map(m => <span key={m} className="tag">{m}</span>)}
+                            {prepMissingList(p, mandatory).map(m => <span key={m} className="tag">{m}</span>)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {potSkippers.length > 0 && (
+                  <div className="summary">
+                    <h3 style={{ color: '#f5c842' }}>Skipped combat potion</h3>
+                    <p style={{ fontSize: '.82rem', color: '#9a9a9a', margin: '.15rem 0 .5rem' }}>
+                      Came prepared, but used no potion on a fight lasting 60s or longer.
+                    </p>
+                    <ul>
+                      {potSkippers.map(p => (
+                        <li key={p.name}>
+                          <strong style={{ color: classColor(p.class) }}>{p.name}</strong>
+                          <span className="missing-tags">
+                            <span className="tag" style={{ borderColor: '#f5c842', color: '#f5c842' }}>No potion</span>
                           </span>
                         </li>
                       ))}

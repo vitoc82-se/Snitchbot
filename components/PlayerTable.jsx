@@ -1,7 +1,25 @@
 import { useState, Fragment } from 'react';
 import { CLASS_ORDER, POT_COLS } from '../lib/constants';
-import { isPrepared, isPotRelevant, score, maxScore, classColor, weaponBuffType, DEFAULT_MANDATORY } from '../lib/scoring';
+import { isPrepReady, isPotRelevant, prepScore, prepMax, potionStatus, potionCount,
+         relevantPotKeys, POTION_MIN_FIGHT_MS, classColor, weaponBuffType, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
+
+// Small coloured pill describing a player's in-combat potion use for one fight.
+function PotionPill({ p, mandatory }) {
+  const status = potionStatus(p, mandatory);
+  const count  = potionCount(p);
+  if (status === 'used') {
+    return <span className="score-badge" style={{ color: '#5aad6f' }}>{count > 0 ? `${count}×` : '✓'}</span>;
+  }
+  if (status === 'missing') {
+    return <span className="score-badge" style={{ color: '#f5c842' }}>none</span>;
+  }
+  // Not applicable — explain why (short fight vs no relevant pot for this role).
+  const hasRelevant = relevantPotKeys(p.class, p.role).length > 0;
+  const shortFight  = p.fightDurationMs != null && p.fightDurationMs < POTION_MIN_FIGHT_MS;
+  const label = hasRelevant && shortFight ? '— <60s' : '—';
+  return <span className="score-badge" style={{ color: '#7a7a7a' }}>{label}</span>;
+}
 
 const PRE_COLS_DEF = [
   { key: 'flask',            label: 'Flask'        },
@@ -30,7 +48,7 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
 
   const toggle = cls => setExpanded(prev => ({ ...prev, [cls]: !prev[cls] }));
 
-  const colCount = 1 + (tableView === 'pre' ? PRE_COLS_DEF.length : POT_COLS.length) + 1;
+  const colCount = 1 + (tableView === 'pre' ? PRE_COLS_DEF.length : POT_COLS.length) + 2;
 
   return (
     <div className="table-wrap">
@@ -42,7 +60,8 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
               ? PRE_COLS_DEF.map(c => <th key={c.key}>{c.label}</th>)
               : POT_COLS.map(c => <th key={c.key}>{c.label}</th>)
             }
-            <th style={{ textAlign: 'center' }}>Score</th>
+            <th style={{ textAlign: 'center' }}>Prep</th>
+            <th style={{ textAlign: 'center' }}>Potion</th>
           </tr>
         </thead>
         <tbody>
@@ -50,7 +69,7 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
             const color   = classColor(cls);
             const isOpen  = !!expanded[cls];
             const members = groups[cls] || [];
-            const ready   = members.filter(p => isPrepared(p, mandatory)).length;
+            const ready   = members.filter(p => isPrepReady(p, mandatory)).length;
 
             return (
               <Fragment key={cls}>
@@ -63,15 +82,15 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                 </tr>
                 {members
                   .slice()
-                  .sort((a, b) => isPrepared(b) - isPrepared(a))
+                  .sort((a, b) => isPrepReady(b, mandatory) - isPrepReady(a, mandatory))
                   .map(p => {
-                    const s  = score(p, mandatory);
-                    const mx = maxScore(p, mandatory);
-                    const pct = mx ? s / mx : 0;
+                    const s  = prepScore(p, mandatory);
+                    const mx = prepMax(p, mandatory);
+                    const pct = mx ? s / mx : 1;
                     const scoreColor = pct >= 1 ? '#5aad6f' : pct >= 0.6 ? '#f5c842' : '#c45a4a';
                     return (
                       <tr key={p.name}
-                        className={isPrepared(p, mandatory) ? 'row-good' : 'row-bad'}
+                        className={isPrepReady(p, mandatory) ? 'row-good' : 'row-bad'}
                         style={{ display: isOpen ? '' : 'none' }}>
                         <td className="player-name" style={{ color }}>
                           {onPlayerClick
@@ -99,6 +118,9 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                         )}
                         <td className="center">
                           <span className="score-badge" style={{ color: scoreColor }}>{s}/{mx}</span>
+                        </td>
+                        <td className="center">
+                          <PotionPill p={p} mandatory={mandatory} />
                         </td>
                       </tr>
                     );

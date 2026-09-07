@@ -1,6 +1,14 @@
 import { POT_COLS } from '../lib/constants';
-import { relevantPots, score, maxScore, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
+import { relevantPots, prepScore, prepMax, potionStatus, potionCount, classColor, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
+
+function PotCell({ p, mandatory }) {
+  const status = potionStatus(p, mandatory);
+  const count  = potionCount(p);
+  if (status === 'used')    return <td className="center" style={{ color: '#5aad6f', fontWeight: 700 }}>{count > 0 ? `${count}×` : '✓'}</td>;
+  if (status === 'missing') return <td className="center" style={{ color: '#f5c842', fontWeight: 700 }}>none</td>;
+  return <td className="center" style={{ color: '#7a7a7a' }}>—</td>;
+}
 
 export default function PlayerPanel({ player, bosses, mandatory = DEFAULT_MANDATORY, onClose }) {
   if (!player) return null;
@@ -39,7 +47,8 @@ export default function PlayerPanel({ player, bosses, mandatory = DEFAULT_MANDAT
                         {POT_COLS.filter(c => rel.has(c.key)).map(c => (
                           <th key={c.key}>{c.label}</th>
                         ))}
-                        <th>Score</th>
+                        <th>Prep</th>
+                        <th>Pot</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -57,7 +66,8 @@ export default function PlayerPanel({ player, bosses, mandatory = DEFAULT_MANDAT
                           {POT_COLS.filter(c => rel.has(c.key)).map(c => (
                             <Cell key={c.key} value={p[c.key]} />
                           ))}
-                          <td className="center modal-score">{score(p, mandatory)}/{maxScore(p, mandatory)}</td>
+                          <td className="center modal-score">{prepScore(p, mandatory)}/{prepMax(p, mandatory)}</td>
+                          <PotCell p={p} mandatory={mandatory} />
                         </tr>
                       ))}
                     </tbody>
