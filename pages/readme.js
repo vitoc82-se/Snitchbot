@@ -194,6 +194,14 @@ function HowItWorks() {
           <li><strong>Potion</strong> — a separate pill for the in-combat potion: <span className="check">2×</span> (used, with count), <span style={{ color: '#f5c842', fontWeight: 'bold' }}>none</span> (skipped on a fight ≥&nbsp;60s), or <span className="na-text">—</span> (short fight or no relevant pot). It never changes the Prep score.</li>
         </ul>
         <p>
+          On shadow-heavy fights (currently <strong>Mother Shahraz</strong>) an extra <strong>Shadow Res</strong> column
+          appears, showing each player's total shadow resistance at pull: the Shadow Protection buff (+70) plus any
+          shadow resistance from gear and gems. <span style={{ color: '#5aad6f', fontWeight: 'bold' }}>Green</span> ≥&nbsp;70
+          (has the buff), <span style={{ color: '#f5c842', fontWeight: 'bold' }}>yellow</span> 1–69,
+          <span style={{ color: '#c45a4a', fontWeight: 'bold' }}> red</span> 0 (no shadow protection at all).
+          It doesn't affect Prep or readiness — it's information for shadow fights.
+        </p>
+        <p>
           Click any player name to open a side panel showing their full breakdown across every boss and every attempt.
         </p>
       </Section>
