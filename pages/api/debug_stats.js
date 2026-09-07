@@ -70,6 +70,14 @@ export default async function handler(req, res) {
     (e.auras || []).forEach(a => a.ability && auraIds.add(a.ability));
   });
 
+  // Optional: dump one player's full raw gear so we can see exactly where SR lives.
+  const who = (req.query.player || '').toLowerCase();
+  let playerGear = null;
+  if (who) {
+    const ev = events.find(e => (actorMap[e.sourceID] || '').toLowerCase() === who);
+    if (ev) playerGear = { name: actorMap[ev.sourceID], gear: ev.gear, auras: ev.auras };
+  }
+
   return res.json({
     fight: fight.name,
     playerCount: events.length,
@@ -79,5 +87,6 @@ export default async function handler(req, res) {
     uniqueSetIds:     [...sets].sort((a, b) => a - b),
     uniqueAuraIds:    [...auraIds].sort((a, b) => a - b),
     sampleAuras: (events[0].auras || []).slice(0, 8),
+    playerGear,
   });
 }
