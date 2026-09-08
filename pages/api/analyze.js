@@ -27,23 +27,30 @@ function detectBuff(buffName, buffId, selfApplied) {
 // In-memory token cache for this instance
 let _analyzeToken = null, _analyzeExpiry = 0;
 
+// These are TBC Anniversary (Fresh) reports. The FRESH endpoint is authoritative
+// and serves the complete report — crucially the buff events/tables. The retail
+// (www) endpoint returns CombatantInfo + summary for fresh reports but NOT buff
+// events, which silently dropped any consumable drunk at/after the pull.
+const FRESH_TOKEN_URL = 'https://fresh.warcraftlogs.com/oauth/token';
+const FRESH_API_URL   = 'https://fresh.warcraftlogs.com/api/v2/client';
+
 async function getToken() {
   // 1. In-memory cache
   if (_analyzeToken && Date.now() < _analyzeExpiry) return _analyzeToken;
 
   // 2. Redis shared cache
-  const cached = await redisGet('wcl:token:retail');
+  const cached = await redisGet('wcl:token:fresh');
   if (cached) {
     _analyzeToken  = cached;
     _analyzeExpiry = Date.now() + 300_000;
     return cached;
   }
 
-  // 3. Fetch fresh token
+  // 3. Fetch a fresh token (same credentials work on the fresh endpoint)
   const credentials = Buffer.from(
     `${process.env.WCL_CLIENT_ID}:${process.env.WCL_CLIENT_SECRET}`
   ).toString('base64');
-  const res = await fetch(WCL_TOKEN_URL, {
+  const res = await fetch(FRESH_TOKEN_URL, {
     method: 'POST',
     headers: { Authorization: `Basic ${credentials}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials',
@@ -53,7 +60,7 @@ async function getToken() {
   if (!data.access_token) throw new Error('No access token in WCL response');
 
   const ttl = (data.expires_in ?? 3600) - 120;
-  await redisSet('wcl:token:retail', data.access_token, ttl);
+  await redisSet('wcl:token:fresh', data.access_token, ttl);
   _analyzeToken  = data.access_token;
   _analyzeExpiry = Date.now() + Math.min(ttl, 300) * 1000;
 
@@ -61,7 +68,7 @@ async function getToken() {
 }
 
 async function queryWCL(token, query, variables = {}) {
-  const res = await fetch(WCL_API_URL, {
+  const res = await fetch(FRESH_API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
@@ -276,14 +283,33 @@ export default async function handler(req, res) {
         Object.assign(playerMap[playerName], cats);
       });
 
-      // Apply WF detections from the per-fight Buffs query (included in Q2)
-      // WF Attack (25584) fires as applybuff where sourceID = the player
+      // Consumable + WF detection from the per-fight Buffs events.
+      // The CombatantInfo snapshot only captures buffs present at the exact pull
+      // instant, so it misses consumables drunk a few seconds into the fight
+      // (e.g. a battle elixir popped on the pull). The buff events cover the whole
+      // fight, so union them in. Only persistent consumable auras are set here —
+      // NOT haste/destruction potions (those are counted from cast events and
+      // must not be clobbered into booleans).
+      const BUFF_EVENT_TYPES = new Set(['applybuff', 'applybuffstack', 'refreshbuff', 'removebuff']);
+      const EVENT_CONS_CATS  = new Set(['flask', 'food', 'guardian_elixir', 'battle_elixir', 'windfury']);
       (r2[`wf${i}`]?.data || []).forEach(e => {
-        if (e.type !== 'applybuff' || e.abilityGameID !== 25584) return;
-        const playerName = actorMap[e.sourceID] || actorMap[e.targetID];
-        if (playerName && playerMap[playerName]) {
-          playerMap[playerName].windfury = true;
+        // Windfury Attack (25584) — the buffed player is the source.
+        if (e.abilityGameID === 25584) {
+          const wfName = actorMap[e.sourceID] || actorMap[e.targetID];
+          if (wfName && playerMap[wfName]) playerMap[wfName].windfury = true;
+          return;
         }
+        if (!BUFF_EVENT_TYPES.has(e.type)) return;
+        const playerName = actorMap[e.targetID];   // consumable buffs land on the target
+        if (!playerName || !playerMap[playerName]) return;
+        const selfApplied = e.sourceID === e.targetID;
+        const cat = detectBuff(auraMap[e.abilityGameID] || '', e.abilityGameID, selfApplied);
+        if (cat && EVENT_CONS_CATS.has(cat)) playerMap[playerName][cat] = true;
+        // Scrolls: mark presence (don't inflate the count with repeated events).
+        if (selfApplied && SCROLL_IDS.has(e.abilityGameID) && !playerMap[playerName]._scrollIds) {
+          playerMap[playerName]._scrollIds = new Set();
+        }
+        if (selfApplied && SCROLL_IDS.has(e.abilityGameID)) playerMap[playerName]._scrollIds.add(e.abilityGameID);
       });
 
       // Fight length — used to gate the in-combat potion check. Potions are
@@ -293,7 +319,12 @@ export default async function handler(req, res) {
       // scoring helpers can apply the duration gate.
       const durationMs = fight.endTime - fight.startTime;
       const players = Object.values(playerMap);
-      players.forEach(p => { p.fightDurationMs = durationMs; });
+      players.forEach(p => {
+        // Scrolls drunk at the pull show up in buff events but not the snapshot —
+        // take the larger of the two (distinct scroll auras), never the sum.
+        if (p._scrollIds) { p.scrolls = Math.max(p.scrolls || 0, p._scrollIds.size); delete p._scrollIds; }
+        p.fightDurationMs = durationMs;
+      });
 
       return {
         id: fight.id,
