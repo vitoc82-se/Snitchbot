@@ -37,10 +37,10 @@ function allAttempts(data) {
   return out.sort((a, b) => b.attemptId - a.attemptId);
 }
 
-// Running "best raider" across every kill seen so far this session: the player
-// who has been a star (brought everything) on the most kills, tiebroken by
-// total potions used.
-function topPlayerSoFar(kills) {
+// Running leaderboard across every kill seen so far this session: the raiders
+// who have been a star (brought everything) on the most kills, tiebroken by
+// total potions used. Returns the top 3.
+function topPlayersSoFar(kills) {
   const agg = {};
   kills.forEach(k => (k.players || []).forEach(p => {
     if (!agg[p.name]) agg[p.name] = { name: p.name, class: p.class, stars: 0, pots: 0 };
@@ -49,7 +49,7 @@ function topPlayerSoFar(kills) {
   }));
   const arr = Object.values(agg).filter(a => a.stars > 0)
     .sort((a, b) => b.stars - a.stars || b.pots - a.pots);
-  return { top: arr[0] || null, totalKills: kills.length };
+  return { top: arr.slice(0, 3), totalKills: kills.length };
 }
 
 function StarPill({ p }) {
@@ -346,35 +346,37 @@ export default function LiveView({ initialCode }) {
         )}
 
         {kills.length > 0 && (() => {
-          const { top, totalKills } = topPlayerSoFar(kills);
+          const { top, totalKills } = topPlayersSoFar(kills);
+          const medals = ['🥇', '🥈', '🥉'];
           return (
             <div style={{
               background: 'linear-gradient(180deg, rgba(245,200,66,.10), rgba(245,200,66,.03))',
               border: '1px solid #b8912f', borderRadius: 10, padding: '.9rem 1.1rem', marginBottom: '1.1rem',
-              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
             }}>
-              <span aria-hidden style={{ fontSize: '1.6rem', lineHeight: 1 }}>🏆</span>
-              <div>
-                <div style={{ color: '#f5c842', fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 700 }}>
-                  Top player so far
-                  <span style={{ color: '#7a6f56', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
-                    {' '}· most flawless kills (every consumable: flask/elixirs, food, scrolls, potion &amp; weapon buff)
-                  </span>
-                </div>
-                {top ? (
-                  <div style={{ marginTop: 3 }}>
-                    <span style={{ fontSize: '1.05rem' }}>★</span>{' '}
-                    <span style={{ color: classColor(top.class), fontWeight: 700, fontSize: '1.15rem' }}>{top.name}</span>
-                    <span style={{ color: '#9a8a60', fontSize: '.85rem' }}>
-                      {' '}— flawless on {top.stars} of {totalKills} kill{totalKills === 1 ? '' : 's'} · {top.pots} potion{top.pots === 1 ? '' : 's'} used
-                    </span>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 3, color: '#8a7a60', fontSize: '.9rem' }}>
-                    No flawless raider yet — nobody has had every consumable (flask/elixirs, food, scrolls, a potion and a weapon buff) on a single kill.
-                  </div>
-                )}
+              <div style={{ color: '#f5c842', fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span aria-hidden style={{ fontSize: '1.1rem' }}>🏆</span>
+                Top players so far
+                <span style={{ color: '#7a6f56', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                  · most flawless kills (every consumable: flask/elixirs, food, scrolls, potion &amp; weapon buff)
+                </span>
               </div>
+              {top.length ? (
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {top.map((p, idx) => (
+                    <div key={p.name} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span aria-hidden style={{ fontSize: '1rem', width: 22, flexShrink: 0 }}>{medals[idx]}</span>
+                      <span style={{ color: classColor(p.class), fontWeight: 700, fontSize: '1.05rem' }}>{p.name}</span>
+                      <span style={{ color: '#9a8a60', fontSize: '.83rem' }}>
+                        flawless on {p.stars} of {totalKills} kill{totalKills === 1 ? '' : 's'} · {p.pots} potion{p.pots === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ marginTop: 6, color: '#8a7a60', fontSize: '.9rem' }}>
+                  No flawless raider yet — nobody has had every consumable (flask/elixirs, food, scrolls, a potion and a weapon buff) on a single kill.
+                </div>
+              )}
             </div>
           );
         })()}
