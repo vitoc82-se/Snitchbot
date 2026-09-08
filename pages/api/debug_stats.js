@@ -76,9 +76,17 @@ export default async function handler(req, res) {
   // Optional: dump one player's full raw gear so we can see exactly where SR lives.
   const who = (req.query.player || '').toLowerCase();
   let playerGear = null;
+  let playerSnapshots = null;
   if (who) {
-    const ev = events.find(e => (actorMap[e.sourceID] || '').toLowerCase() === who);
-    if (ev) playerGear = { name: actorMap[ev.sourceID], gear: ev.gear, auras: ev.auras };
+    const evs = events.filter(e => (actorMap[e.sourceID] || '').toLowerCase() === who);
+    if (evs.length) {
+      const ev = evs[0];
+      playerGear = { name: actorMap[ev.sourceID], gear: ev.gear, auras: ev.auras };
+      playerSnapshots = evs.map(e => ({
+        timestamp: e.timestamp,
+        auras: (e.auras || []).map(a => a.ability + ':' + (a.name || '')),
+      }));
+    }
   }
 
   return res.json({
@@ -91,5 +99,6 @@ export default async function handler(req, res) {
     uniqueAuraIds:    [...auraIds].sort((a, b) => a - b),
     sampleAuras: (events[0].auras || []).slice(0, 8),
     playerGear,
+    playerSnapshots,
   });
 }
