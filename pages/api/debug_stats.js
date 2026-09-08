@@ -78,15 +78,20 @@ export default async function handler(req, res) {
   let buffTable = null;
   if (req.query.bufftable) {
     const bt = await queryWCL(token, `
-      query($code:String!,$s:Float!,$e:Float!){ reportData{report(code:$code){ table(dataType:Buffs, startTime:$s, endTime:$e) }}}
+      query($code:String!,$s:Float!,$e:Float!){ reportData{report(code:$code){
+        plain:  table(dataType:Buffs, startTime:$s, endTime:$e)
+        friend: table(dataType:Buffs, startTime:$s, endTime:$e, hostilityType:Friendlies)
+        byab:   table(dataType:Buffs, startTime:$s, endTime:$e, abilityID:11406)
+      }}}
     `, { code, s: fight.startTime, e: fight.endTime });
-    const data = bt.reportData?.report?.table?.data || {};
-    const auras = data.auras || data.entries || [];
-    buffTable = {
-      topKeys: Object.keys(data),
-      auraCount: Array.isArray(auras) ? auras.length : 'n/a',
-      sampleAura: Array.isArray(auras) ? (auras.find(a => a.guid === 11406) || auras[0]) : null,
+    const rep = bt.reportData?.report || {};
+    const describe = (t) => {
+      const data = t?.data || {};
+      const auras = data.auras || data.entries || [];
+      return { topKeys: Object.keys(data), auraCount: Array.isArray(auras) ? auras.length : 'n/a',
+        sample: Array.isArray(auras) ? (auras.find(a => a.guid === 11406) || auras[0]) : null };
     };
+    buffTable = { plain: describe(rep.plain), friend: describe(rep.friend), byab: describe(rep.byab) };
   }
 
   const who = (req.query.player || '').toLowerCase();
