@@ -196,6 +196,7 @@ export default function SnitchbotApp({ initialCode }) {
           </Link>
 
           <div className="nav-center">
+            <Link href="/live"    className="nav-link" style={{ color: '#e05555', fontWeight: 700 }}>● Live</Link>
             <Link href="/lookup"  className="nav-link">Player Lookup</Link>
             <Link href="/compare" className="nav-link">Compare</Link>
             {session ? (
