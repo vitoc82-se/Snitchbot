@@ -35,6 +35,21 @@ function killsFromData(data) {
   return out.sort((a, b) => b.attemptId - a.attemptId);
 }
 
+// Running "best raider" across every kill seen so far this session: the player
+// who has been a star (brought everything) on the most kills, tiebroken by
+// total potions used.
+function topPlayerSoFar(kills) {
+  const agg = {};
+  kills.forEach(k => (k.players || []).forEach(p => {
+    if (!agg[p.name]) agg[p.name] = { name: p.name, class: p.class, stars: 0, pots: 0 };
+    agg[p.name].pots += totalPotions(p);
+    if (isStar(p)) agg[p.name].stars++;
+  }));
+  const arr = Object.values(agg).filter(a => a.stars > 0)
+    .sort((a, b) => b.stars - a.stars || b.pots - a.pots);
+  return { top: arr[0] || null, totalKills: kills.length };
+}
+
 function StarPill({ p }) {
   return (
     <span style={{
@@ -303,6 +318,36 @@ export default function LiveView({ initialCode }) {
             No boss kills logged yet. This page will update automatically when one appears.
           </div>
         )}
+
+        {kills.length > 0 && (() => {
+          const { top, totalKills } = topPlayerSoFar(kills);
+          return (
+            <div style={{
+              background: 'linear-gradient(180deg, rgba(245,200,66,.10), rgba(245,200,66,.03))',
+              border: '1px solid #b8912f', borderRadius: 10, padding: '.9rem 1.1rem', marginBottom: '1.1rem',
+              display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+            }}>
+              <span aria-hidden style={{ fontSize: '1.6rem', lineHeight: 1 }}>🏆</span>
+              <div>
+                <div style={{ color: '#f5c842', fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 700 }}>
+                  Top player so far
+                </div>
+                {top ? (
+                  <div style={{ marginTop: 3 }}>
+                    <span style={{ color: classColor(top.class), fontWeight: 700, fontSize: '1.15rem' }}>{top.name}</span>
+                    <span style={{ color: '#9a8a60', fontSize: '.85rem' }}>
+                      {' '}— fully prepped on {top.stars} of {totalKills} kill{totalKills === 1 ? '' : 's'} · {top.pots} potion{top.pots === 1 ? '' : 's'} used
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 3, color: '#8a7a60', fontSize: '.9rem' }}>
+                    No fully-prepped raider yet — bring flask, elixirs, food, scrolls, a potion and a weapon buff to claim it.
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {kills.map(k => <KillCard key={k.key} kill={k} isNew={newKeys.has(k.key)} />)}
 
