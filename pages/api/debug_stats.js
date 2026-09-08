@@ -74,6 +74,21 @@ export default async function handler(req, res) {
   });
 
   // Optional: dump one player's full raw gear so we can see exactly where SR lives.
+  // Inspect the per-fight Buffs uptime table structure.
+  let buffTable = null;
+  if (req.query.bufftable) {
+    const bt = await queryWCL(token, `
+      query($code:String!,$fid:[Int]!){ reportData{report(code:$code){ table(dataType:Buffs, fightIDs:$fid) }}}
+    `, { code, fid: [fight.id] });
+    const data = bt.reportData?.report?.table?.data || {};
+    const auras = data.auras || data.entries || [];
+    buffTable = {
+      topKeys: Object.keys(data),
+      auraCount: Array.isArray(auras) ? auras.length : 'n/a',
+      sampleAura: Array.isArray(auras) ? auras.find(a => a.guid === 11406) || auras[0] : null,
+    };
+  }
+
   const who = (req.query.player || '').toLowerCase();
 
   // Dump every buff the player GAINED during the fight (all buff events, not just
@@ -128,5 +143,6 @@ export default async function handler(req, res) {
     fightStart: fight.startTime,
     fightEnd: fight.endTime,
     buffGained,
+    buffTable,
   });
 }
