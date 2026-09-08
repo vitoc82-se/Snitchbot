@@ -91,16 +91,27 @@ export default async function handler(req, res) {
           method: 'POST', headers: { Authorization: `Bearer ${tj.access_token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: `query($code:String!,$s:Float!,$e:Float!){reportData{report(code:$code){ ev: events(dataType:Buffs, startTime:$s, endTime:$e, limit:5000){data} }}}`, variables: { code, s: fight.startTime, e: fight.endTime } }),
         });
-        const fj = await fr.json();
-        const evs = fj.data?.reportData?.report?.ev?.data || [];
-        const siuerId = Object.keys(actorMap).find(id => (actorMap[id] || '').toLowerCase() === 'siuer');
-        const siuerAbilities = {};
-        evs.forEach(e => { if (String(e.targetID) === String(siuerId)) siuerAbilities[e.abilityGameID] = (siuerAbilities[e.abilityGameID]||0)+1; });
+        // Broader check: fights, CombatantInfo, and the report-wide buffs table (for aura names).
+        const fr2 = await fetch('https://fresh.warcraftlogs.com/api/v2/client', {
+          method: 'POST', headers: { Authorization: `Bearer ${tj.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: `query($code:String!,$s:Float!,$e:Float!){reportData{report(code:$code){
+            fights(killType:Encounters){id name kill}
+            ci: events(dataType:CombatantInfo, startTime:$s, endTime:$e){data}
+            wide: table(dataType:Buffs, startTime:0, endTime:99999999999)
+          }}}`, variables: { code, s: fight.startTime, e: fight.endTime } }),
+        });
+        const fj2 = await fr2.json();
+        const rep2 = fj2.data?.reportData?.report || {};
+        const wideAuras = rep2.wide?.data?.auras || [];
         freshTest = {
-          tokenOk: true, errors: fj.errors ? fj.errors[0].message : null,
+          tokenOk: true, errors: (fj.errors||fj2.errors) ? (fj.errors?.[0]?.message||fj2.errors?.[0]?.message) : null,
           rawBuffEvents: evs.length,
           has11406AnyTarget: evs.some(e => e.abilityGameID === 11406),
-          siuerAbilityIds: Object.keys(siuerAbilities).map(Number),
+          fightsCount: (rep2.fights||[]).length,
+          combatantInfoCount: (rep2.ci?.data||[]).length,
+          wideBuffAuraCount: wideAuras.length,
+          sampleAuraNames: wideAuras.slice(0,3).map(a=>`${a.guid}:${a.name}`),
+          demonslayingName: (wideAuras.find(a=>a.guid===11406)||{}).name,
         };
       }
     } catch (e) { freshTest = { err: String(e).slice(0, 120) }; }
