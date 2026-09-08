@@ -19,15 +19,17 @@ function toLogUrl(input) {
   return v;
 }
 
-// Flatten an analyze response into a list of kills, newest first.
-function killsFromData(data) {
+// Flatten an analyze response into all attempts (kills + wipes), newest first.
+function allAttempts(data) {
   const out = [];
   (data.bosses || []).forEach(boss => {
     (boss.attempts || []).forEach(a => {
-      if (a.isKill) out.push({
+      out.push({
         key: `${boss.name}#${a.id}`,
         boss: boss.name,
         attemptId: a.id,
+        isKill: !!a.isKill,
+        attempt: a.attempt,
         players: a.players || [],
       });
     });
@@ -87,8 +89,10 @@ function KillCard({ kill, isNew }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '.85rem', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f3e9d2' }}>{kill.boss}</span>
-        <span style={{ background: '#274d2e', color: '#7fdc8f', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: '.08em' }}>Kill</span>
-        {isNew && <span style={{ background: 'rgba(245,200,66,.15)', color: '#f5c842', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 5 }}>NEW</span>}
+        {kill.isKill
+          ? <span style={{ background: '#274d2e', color: '#7fdc8f', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: '.08em' }}>Kill</span>
+          : <span style={{ background: '#4a2618', color: '#e0a05a', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 5, textTransform: 'uppercase', letterSpacing: '.08em' }}>Wipe {kill.attempt}</span>}
+        {isNew && <span style={{ background: 'rgba(245,200,66,.15)', color: '#f5c842', fontSize: '.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: 5 }}>{kill.isKill ? 'NEW' : 'LIVE'}</span>}
         <span style={{ marginLeft: 'auto', color: '#6a5f4a', fontSize: '.8rem' }}>{players.length} players</span>
       </div>
 
@@ -177,12 +181,14 @@ export default function LiveView({ initialCode }) {
   const [error, setError]     = useState('');
   const [title, setTitle]     = useState('');
   const [kills, setKills]     = useState([]);
+  const [currentWipe, setCurrentWipe] = useState(null);
   const [lastChecked, setLastChecked] = useState(null);
   const [newKeys, setNewKeys] = useState(new Set());
 
-  const seenRef  = useRef(new Set());
-  const timerRef = useRef(null);
-  const urlRef   = useRef(null);
+  const seenRef   = useRef(new Set());
+  const timerRef  = useRef(null);
+  const urlRef    = useRef(null);
+  const wipeKeyRef = useRef(null);
 
   const poll = useCallback(async (firstRun) => {
     const logUrl = urlRef.current;
@@ -198,34 +204,53 @@ export default function LiveView({ initialCode }) {
       if (!res.ok) throw new Error(data.error || 'Analyze failed');
       if (data.title) setTitle(data.title);
 
-      const all = killsFromData(data);
-      const fresh = all.filter(k => !seenRef.current.has(k.key));
-      fresh.forEach(k => seenRef.current.add(k.key));
+      // Attach active-time % (DPS/tank activity) to an attempt object.
+      const attachActivity = async (k) => {
+        try {
+          const ar = await fetch('/api/activity', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ logUrl, fightId: k.attemptId }),
+          });
+          const aj = await ar.json();
+          if (ar.ok && Array.isArray(aj.players)) {
+            const map = {};
+            aj.players.forEach(p => { map[p.name] = { activity: p.activity, alive: p.alive }; });
+            k.activity = map;
+          }
+        } catch (e) { /* activity stays undefined → section hidden */ }
+      };
 
+      const all       = allAttempts(data);
+      const killsList = all.filter(a => a.isKill);
+
+      // New kills → persistent log (newest first).
+      const fresh = killsList.filter(k => !seenRef.current.has(k.key));
+      fresh.forEach(k => seenRef.current.add(k.key));
       if (fresh.length) {
-        // Pull active-time % for each new kill (DPS/tank activity slackers).
-        await Promise.all(fresh.map(async k => {
-          try {
-            const ar = await fetch('/api/activity', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ logUrl, fightId: k.attemptId }),
-            });
-            const aj = await ar.json();
-            if (ar.ok && Array.isArray(aj.players)) {
-              const map = {};
-              aj.players.forEach(p => { map[p.name] = { activity: p.activity, alive: p.alive }; });
-              k.activity = map;
-            }
-          } catch (e) { /* activity stays undefined → section hidden */ }
-        }));
-        // On the first run everything is "catch-up" (not flagged NEW); later polls flag new kills.
+        await Promise.all(fresh.map(attachActivity));
         setKills(prev => [...fresh, ...prev]);
         if (!firstRun) setNewKeys(new Set(fresh.map(k => k.key)));
       }
+
+      // Latest wipe: show ONE wipe card, but only while the most recent attempt
+      // overall is a wipe. Once a kill lands after it, the wipe card drops.
+      const latest = all[0];
+      if (latest && !latest.isKill) {
+        if (wipeKeyRef.current !== latest.key) {
+          wipeKeyRef.current = latest.key;
+          await attachActivity(latest);
+          setCurrentWipe(latest);
+        }
+      } else if (wipeKeyRef.current !== null) {
+        wipeKeyRef.current = null;
+        setCurrentWipe(null);
+      }
+
       setLastChecked(new Date());
       setError('');
+      const nk = killsList.length;
       setStatus(firstRun
-        ? `Watching “${data.title || logUrl}” — ${all.length} kill${all.length === 1 ? '' : 's'} so far.`
+        ? `Watching “${data.title || logUrl}” — ${nk} kill${nk === 1 ? '' : 's'} so far.`
         : `Live — checking every 4 min.`);
     } catch (e) {
       setError(String(e.message || e));
@@ -236,7 +261,8 @@ export default function LiveView({ initialCode }) {
   function start() {
     const logUrl = toLogUrl(input);
     if (!logUrl) { setError('Enter a Warcraft Logs URL or report code.'); return; }
-    setError(''); setKills([]); setNewKeys(new Set()); seenRef.current = new Set();
+    setError(''); setKills([]); setCurrentWipe(null); setNewKeys(new Set());
+    seenRef.current = new Set(); wipeKeyRef.current = null;
     urlRef.current = logUrl;
     setRunning(true);
     poll(true);
@@ -313,9 +339,9 @@ export default function LiveView({ initialCode }) {
           </div>
         )}
 
-        {running && kills.length === 0 && !error && (
+        {running && kills.length === 0 && !currentWipe && !error && (
           <div style={{ color: '#6a5f4a', fontSize: '.9rem', padding: '1.5rem 0' }}>
-            No boss kills logged yet. This page will update automatically when one appears.
+            No boss pulls logged yet. This page will update automatically when one appears.
           </div>
         )}
 
@@ -348,6 +374,9 @@ export default function LiveView({ initialCode }) {
             </div>
           );
         })()}
+
+        {/* Current wipe: a single transient card for the latest wipe (replaced each pull, gone once a kill lands). */}
+        {currentWipe && <KillCard key={'wipe:' + currentWipe.key} kill={currentWipe} isNew={true} />}
 
         {kills.map(k => <KillCard key={k.key} kill={k} isNew={newKeys.has(k.key)} />)}
 
