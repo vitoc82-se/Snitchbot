@@ -7,6 +7,7 @@ import {
 } from '../lib/scoring';
 
 const POLL_MS = 4 * 60 * 1000;   // 4 minutes
+const ACTIVITY_MIN = 85;         // DPS/tanks below this active-time % = slacker
 
 // Normalise whatever the user pastes (full URL or bare report code) into a URL
 // the /api/analyze endpoint understands (it extracts /reports/<code>/).
@@ -53,6 +54,15 @@ function KillCard({ kill, isNew }) {
   const unprepared = players.filter(p => !isPrepReady(p));
   const noPot      = players.filter(p => potionStatus(p) === 'missing');
   const stars      = players.filter(isStar).sort((a, b) => totalPotions(b) - totalPotions(a)).slice(0, 3);
+
+  // Activity: DPS/tanks who survived the whole fight but were active < 85%.
+  const act = kill.activity;
+  const lowActivity = act
+    ? players
+        .filter(p => (p.role === 'dps' || p.role === 'tank') && act[p.name] && act[p.name].alive && act[p.name].activity < ACTIVITY_MIN)
+        .map(p => ({ ...p, activity: act[p.name].activity }))
+        .sort((a, b) => a.activity - b.activity)
+    : null;
 
   return (
     <div style={{
@@ -121,6 +131,26 @@ function KillCard({ kill, isNew }) {
           ))}
         </div>
       )}
+
+      {/* Low activity (DPS/tanks, survived the whole fight, < 85% active) */}
+      {lowActivity && (
+        <>
+          <div style={{ color: '#9a8a60', fontSize: '.72rem', textTransform: 'uppercase', letterSpacing: '.1em', margin: '.75rem 0 6px' }}>
+            Low activity &lt; {ACTIVITY_MIN}% ({lowActivity.length}) <span style={{ textTransform: 'none', letterSpacing: 0, color: '#5f5646' }}>· DPS &amp; tanks, full fight</span>
+          </div>
+          {lowActivity.length === 0 ? (
+            <div style={{ color: '#5aad6f', fontSize: '.9rem' }}>Everyone kept their uptime up.</div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {lowActivity.map(p => (
+                <span key={p.name} style={{ border: '1px solid #d98b45', color: '#e0a05a', borderRadius: 5, padding: '2px 8px', fontSize: '.82rem' }}>
+                  <span style={{ color: classColor(p.class) }}>{p.name}</span> · {p.activity}%
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -158,6 +188,21 @@ export default function LiveView({ initialCode }) {
       fresh.forEach(k => seenRef.current.add(k.key));
 
       if (fresh.length) {
+        // Pull active-time % for each new kill (DPS/tank activity slackers).
+        await Promise.all(fresh.map(async k => {
+          try {
+            const ar = await fetch('/api/activity', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ logUrl, fightId: k.attemptId }),
+            });
+            const aj = await ar.json();
+            if (ar.ok && Array.isArray(aj.players)) {
+              const map = {};
+              aj.players.forEach(p => { map[p.name] = { activity: p.activity, alive: p.alive }; });
+              k.activity = map;
+            }
+          } catch (e) { /* activity stays undefined → section hidden */ }
+        }));
         // On the first run everything is "catch-up" (not flagged NEW); later polls flag new kills.
         setKills(prev => [...fresh, ...prev]);
         if (!firstRun) setNewKeys(new Set(fresh.map(k => k.key)));
