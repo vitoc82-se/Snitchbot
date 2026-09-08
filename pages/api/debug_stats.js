@@ -74,6 +74,22 @@ export default async function handler(req, res) {
   });
 
   // Optional: dump one player's full raw gear so we can see exactly where SR lives.
+  // Optional: dump buff apply/remove events for one ability during the fight,
+  // to see whether a consumable was active mid-fight (not just at the pull snapshot).
+  const abilityId = req.query.ability ? Number(req.query.ability) : null;
+  let buffEvents = null;
+  if (abilityId) {
+    const bd = await queryWCL(token, `
+      query($code:String!,$s:Float!,$e:Float!,$ab:Float!){
+        reportData{report(code:$code){ events(dataType:Buffs, abilityID:$ab, startTime:$s, endTime:$e, limit:300){data} }}}
+    `, { code, s: fight.startTime, e: fight.endTime, ab: abilityId });
+    const evs = bd.reportData?.report?.events?.data || [];
+    buffEvents = evs.map(e => ({
+      t: e.type, atSec: Math.round((e.timestamp - fight.startTime) / 1000),
+      src: actorMap[e.sourceID] || e.sourceID, tgt: actorMap[e.targetID] || e.targetID,
+    }));
+  }
+
   const who = (req.query.player || '').toLowerCase();
   let playerGear = null;
   let playerSnapshots = null;
@@ -100,5 +116,8 @@ export default async function handler(req, res) {
     sampleAuras: (events[0].auras || []).slice(0, 8),
     playerGear,
     playerSnapshots,
+    fightStart: fight.startTime,
+    fightEnd: fight.endTime,
+    buffEvents,
   });
 }
