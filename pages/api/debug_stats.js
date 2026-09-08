@@ -74,6 +74,38 @@ export default async function handler(req, res) {
   });
 
   // Optional: dump one player's full raw gear so we can see exactly where SR lives.
+  // Test the FRESH endpoint for buff data (fresh reports may not serve buff
+  // events/tables via www.warcraftlogs.com).
+  let freshTest = null;
+  if (req.query.fresh) {
+    try {
+      const cred = Buffer.from(`${process.env.WCL_CLIENT_ID}:${process.env.WCL_CLIENT_SECRET}`).toString('base64');
+      const tr = await fetch('https://fresh.warcraftlogs.com/oauth/token', {
+        method: 'POST', headers: { Authorization: `Basic ${cred}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'grant_type=client_credentials',
+      });
+      const tj = await tr.json();
+      if (!tj.access_token) { freshTest = { tokenOk: false }; }
+      else {
+        const fr = await fetch('https://fresh.warcraftlogs.com/api/v2/client', {
+          method: 'POST', headers: { Authorization: `Bearer ${tj.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: `query($code:String!,$s:Float!,$e:Float!){reportData{report(code:$code){ ev: events(dataType:Buffs, startTime:$s, endTime:$e, limit:5000){data} }}}`, variables: { code, s: fight.startTime, e: fight.endTime } }),
+        });
+        const fj = await fr.json();
+        const evs = fj.data?.reportData?.report?.ev?.data || [];
+        const siuerId = Object.keys(actorMap).find(id => (actorMap[id] || '').toLowerCase() === 'siuer');
+        const siuerAbilities = {};
+        evs.forEach(e => { if (String(e.targetID) === String(siuerId)) siuerAbilities[e.abilityGameID] = (siuerAbilities[e.abilityGameID]||0)+1; });
+        freshTest = {
+          tokenOk: true, errors: fj.errors ? fj.errors[0].message : null,
+          rawBuffEvents: evs.length,
+          has11406AnyTarget: evs.some(e => e.abilityGameID === 11406),
+          siuerAbilityIds: Object.keys(siuerAbilities).map(Number),
+        };
+      }
+    } catch (e) { freshTest = { err: String(e).slice(0, 120) }; }
+  }
+
   // Inspect the per-fight Buffs uptime table structure.
   let buffTable = null;
   if (req.query.bufftable) {
@@ -153,5 +185,6 @@ export default async function handler(req, res) {
     fightEnd: fight.endTime,
     buffGained,
     buffTable,
+    freshTest,
   });
 }
