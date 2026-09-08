@@ -46,7 +46,10 @@ export default async function handler(req, res) {
   const actorMap = {};
   (report.masterData?.actors || []).forEach(a => { actorMap[a.id] = a.name; });
 
-  const fight = fights.find(f => bossFilter && f.name.toLowerCase().includes(bossFilter)) || fights[0];
+  const wantId = req.query.fightId ? Number(req.query.fightId) : null;
+  const fight = (wantId && fights.find(f => f.id === wantId))
+    || fights.find(f => bossFilter && f.name.toLowerCase().includes(bossFilter))
+    || fights[0];
 
   const { data: d2 } = await queryWCL(token, `
     query($code: String!, $start: Float!, $end: Float!) {
