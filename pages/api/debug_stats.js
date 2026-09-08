@@ -91,6 +91,8 @@ export default async function handler(req, res) {
           method: 'POST', headers: { Authorization: `Bearer ${tj.access_token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: `query($code:String!,$s:Float!,$e:Float!){reportData{report(code:$code){ ev: events(dataType:Buffs, startTime:$s, endTime:$e, limit:5000){data} }}}`, variables: { code, s: fight.startTime, e: fight.endTime } }),
         });
+        const fj = await fr.json();
+        const evs = fj.data?.reportData?.report?.ev?.data || [];
         // Broader check: fights, CombatantInfo, and the report-wide buffs table (for aura names).
         const fr2 = await fetch('https://fresh.warcraftlogs.com/api/v2/client', {
           method: 'POST', headers: { Authorization: `Bearer ${tj.access_token}`, 'Content-Type': 'application/json' },
