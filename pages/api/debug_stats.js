@@ -79,19 +79,23 @@ export default async function handler(req, res) {
   if (req.query.bufftable) {
     const bt = await queryWCL(token, `
       query($code:String!,$s:Float!,$e:Float!){ reportData{report(code:$code){
-        plain:  table(dataType:Buffs, startTime:$s, endTime:$e)
-        friend: table(dataType:Buffs, startTime:$s, endTime:$e, hostilityType:Friendlies)
-        byab:   table(dataType:Buffs, startTime:$s, endTime:$e, abilityID:11406)
+        wide:   table(dataType:Buffs, startTime:0, endTime:99999999999)
+        ev:     events(dataType:Buffs, startTime:$s, endTime:$e, limit:5000){ data }
       }}}
     `, { code, s: fight.startTime, e: fight.endTime });
     const rep = bt.reportData?.report || {};
-    const describe = (t) => {
-      const data = t?.data || {};
-      const auras = data.auras || data.entries || [];
-      return { topKeys: Object.keys(data), auraCount: Array.isArray(auras) ? auras.length : 'n/a',
-        sample: Array.isArray(auras) ? (auras.find(a => a.guid === 11406) || auras[0]) : null };
+    const wideAuras = rep.wide?.data?.auras || rep.wide?.data?.entries || [];
+    const evData = rep.ev?.data || [];
+    // sample: which abilities appear in buff events, and does 11406 appear (any target)?
+    const abilitySet = {};
+    evData.forEach(e => { abilitySet[e.abilityGameID] = (abilitySet[e.abilityGameID]||0)+1; });
+    buffTable = {
+      wideAuraCount: Array.isArray(wideAuras) ? wideAuras.length : 'n/a',
+      wideHas11406: Array.isArray(wideAuras) ? wideAuras.some(a => a.guid === 11406) : 'n/a',
+      rawBuffEvents: evData.length,
+      has11406InEvents: !!abilitySet[11406],
+      distinctAbilities: Object.keys(abilitySet).length,
     };
-    buffTable = { plain: describe(rep.plain), friend: describe(rep.friend), byab: describe(rep.byab) };
   }
 
   const who = (req.query.player || '').toLowerCase();
