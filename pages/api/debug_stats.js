@@ -74,23 +74,32 @@ export default async function handler(req, res) {
   });
 
   // Optional: dump one player's full raw gear so we can see exactly where SR lives.
-  // Optional: dump buff apply/remove events for one ability during the fight,
-  // to see whether a consumable was active mid-fight (not just at the pull snapshot).
-  const abilityId = req.query.ability ? Number(req.query.ability) : null;
-  let buffEvents = null;
-  if (abilityId) {
-    const bd = await queryWCL(token, `
-      query($code:String!,$s:Float!,$e:Float!,$ab:Float!){
-        reportData{report(code:$code){ events(dataType:Buffs, abilityID:$ab, startTime:$s, endTime:$e, limit:300){data} }}}
-    `, { code, s: fight.startTime, e: fight.endTime, ab: abilityId });
-    const evs = bd.reportData?.report?.events?.data || [];
-    buffEvents = evs.map(e => ({
-      t: e.type, atSec: Math.round((e.timestamp - fight.startTime) / 1000),
-      src: actorMap[e.sourceID] || e.sourceID, tgt: actorMap[e.targetID] || e.targetID,
-    }));
-  }
-
   const who = (req.query.player || '').toLowerCase();
+
+  // Dump every buff the player GAINED during the fight (all buff events, not just
+  // the pull snapshot) so we can see consumables drunk at/after the pull.
+  let buffGained = null;
+  if (who) {
+    const whoId = Object.keys(actorMap).find(id => (actorMap[id] || '').toLowerCase() === who);
+    if (whoId) {
+      const seen = {};
+      let nextPage = fight.startTime;
+      for (let guard = 0; guard < 6 && nextPage != null; guard++) {
+        const bd = await queryWCL(token, `
+          query($code:String!,$s:Float!,$e:Float!){
+            reportData{report(code:$code){ events(dataType:Buffs, startTime:$s, endTime:$e, limit:10000){ data nextPageTimestamp } }}}
+        `, { code, s: nextPage, e: fight.endTime });
+        const blk = bd.reportData?.report?.events;
+        (blk?.data || []).forEach(e => {
+          if (String(e.targetID) !== String(whoId)) return;
+          if (!seen[e.abilityGameID]) seen[e.abilityGameID] = { id: e.abilityGameID, types: new Set(), firstSec: Math.round((e.timestamp - fight.startTime) / 1000) };
+          seen[e.abilityGameID].types.add(e.type);
+        });
+        nextPage = blk?.nextPageTimestamp ?? null;
+      }
+      buffGained = Object.values(seen).map(x => ({ id: x.id, types: [...x.types], firstSec: x.firstSec }));
+    }
+  }
   let playerGear = null;
   let playerSnapshots = null;
   if (who) {
@@ -118,6 +127,6 @@ export default async function handler(req, res) {
     playerSnapshots,
     fightStart: fight.startTime,
     fightEnd: fight.endTime,
-    buffEvents,
+    buffGained,
   });
 }
