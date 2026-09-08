@@ -78,14 +78,14 @@ export default async function handler(req, res) {
   let buffTable = null;
   if (req.query.bufftable) {
     const bt = await queryWCL(token, `
-      query($code:String!,$fid:[Int]!){ reportData{report(code:$code){ table(dataType:Buffs, fightIDs:$fid) }}}
-    `, { code, fid: [fight.id] });
+      query($code:String!,$s:Float!,$e:Float!){ reportData{report(code:$code){ table(dataType:Buffs, startTime:$s, endTime:$e) }}}
+    `, { code, s: fight.startTime, e: fight.endTime });
     const data = bt.reportData?.report?.table?.data || {};
     const auras = data.auras || data.entries || [];
     buffTable = {
       topKeys: Object.keys(data),
       auraCount: Array.isArray(auras) ? auras.length : 'n/a',
-      sampleAura: Array.isArray(auras) ? auras.find(a => a.guid === 11406) || auras[0] : null,
+      sampleAura: Array.isArray(auras) ? (auras.find(a => a.guid === 11406) || auras[0]) : null,
     };
   }
 
