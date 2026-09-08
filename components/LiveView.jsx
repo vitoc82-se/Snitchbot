@@ -357,17 +357,21 @@ export default function LiveView({ initialCode }) {
               <div>
                 <div style={{ color: '#f5c842', fontSize: '.7rem', textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 700 }}>
                   Top player so far
+                  <span style={{ color: '#7a6f56', textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                    {' '}· most flawless kills (every consumable: flask/elixirs, food, scrolls, potion &amp; weapon buff)
+                  </span>
                 </div>
                 {top ? (
                   <div style={{ marginTop: 3 }}>
+                    <span style={{ fontSize: '1.05rem' }}>★</span>{' '}
                     <span style={{ color: classColor(top.class), fontWeight: 700, fontSize: '1.15rem' }}>{top.name}</span>
                     <span style={{ color: '#9a8a60', fontSize: '.85rem' }}>
-                      {' '}— fully prepped on {top.stars} of {totalKills} kill{totalKills === 1 ? '' : 's'} · {top.pots} potion{top.pots === 1 ? '' : 's'} used
+                      {' '}— flawless on {top.stars} of {totalKills} kill{totalKills === 1 ? '' : 's'} · {top.pots} potion{top.pots === 1 ? '' : 's'} used
                     </span>
                   </div>
                 ) : (
                   <div style={{ marginTop: 3, color: '#8a7a60', fontSize: '.9rem' }}>
-                    No fully-prepped raider yet — bring flask, elixirs, food, scrolls, a potion and a weapon buff to claim it.
+                    No flawless raider yet — nobody has had every consumable (flask/elixirs, food, scrolls, a potion and a weapon buff) on a single kill.
                   </div>
                 )}
               </div>
