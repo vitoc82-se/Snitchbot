@@ -195,10 +195,13 @@ function HowItWorks() {
         </ul>
         <p>
           On shadow-heavy fights (currently <strong>Mother Shahraz</strong>) an extra <strong>Shadow Res</strong> column
-          appears, showing each player's total shadow resistance at pull: the Shadow Protection buff (+70) plus any
-          shadow resistance from gear and gems. <span style={{ color: '#5aad6f', fontWeight: 'bold' }}>Green</span> ≥&nbsp;70
-          (has the buff), <span style={{ color: '#f5c842', fontWeight: 'bold' }}>yellow</span> 1–69,
-          <span style={{ color: '#c45a4a', fontWeight: 'bold' }}> red</span> 0 (no shadow protection at all).
+          appears, showing each player's total shadow resistance at pull: the Shadow Protection buff (+70, or +25 from
+          Mark of the Wild if that's all they have — the two don't stack), resistance flasks and Gift of Arthas, gear,
+          gems and enchants (cloak, Shadow Armor Kit, Glyph of Shadow Warding). Hover the number for the breakdown.
+          <span style={{ color: '#5aad6f', fontWeight: 'bold' }}> Green</span> ≥&nbsp;244 (Wowhead's recommended 174 from
+          gear + the buff), <span style={{ color: '#f5c842', fontWeight: 'bold' }}>amber</span> 70–243 (buff only or
+          partial gear), <span style={{ color: '#c45a4a', fontWeight: 'bold' }}>red</span> under 70 (missing even the
+          buff). Tanks are shown in grey — they don't need SR.
           It doesn't affect Prep or readiness — it's information for shadow fights.
         </p>
         <p>

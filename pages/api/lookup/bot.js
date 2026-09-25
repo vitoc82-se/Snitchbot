@@ -13,11 +13,9 @@
  */
 
 import sql from '../../../lib/db';
+import { RAID_25_ZONE_IDS } from '../../../lib/wcl-consumables';
 
 const CACHE_TTL_DAYS = 7;
-
-// 25-man raid zone IDs — must match RAID_25_ZONE_IDS in pages/lookup/index.js
-const RAID_25_ZONE_IDS = new Set([1048, 1056, 1060]); // Gruul/Mag, SSC/TK, BT/Hyjal
 
 // Mirrors calcCombinedRating() from pages/lookup/index.js (kept in sync manually)
 // Weights: WCL 50% · Enchants 30% · Consumes 20%

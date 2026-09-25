@@ -24,6 +24,7 @@ import {
   POTION_CAST_IDS, WEAPON_ENCHANT_IDS, WF_ENCHANT_IDS,
 } from '../../../lib/constants';
 import { score as calcScore, maxScore as calcMax, DEFAULT_MANDATORY } from '../../../lib/scoring';
+import { TBC_RANKING_ZONES } from '../../../lib/wcl-consumables';
 
 const CLASS_NAMES = {
   1: 'Death Knight', 2: 'Druid',  3: 'Hunter', 4: 'Mage',    5: 'Monk',
@@ -33,13 +34,6 @@ const CLASS_NAMES = {
 
 const ENCHANT_SLOTS   = { mainhand: 15, head: 0, shoulder: 2, chest: 4, legs: 6, bracer: 8, gloves: 9 };
 const ENCHANT_WEIGHTS = { mainhand: 25, head: 20, shoulder: 15, legs: 15, gloves: 10, bracer: 8, chest: 7 };
-
-const TBC_RANKING_ZONES = [
-  { id: 1047, name: 'Karazhan'            },
-  { id: 1048, name: 'Gruul / Magtheridon' },
-  { id: 1056, name: 'SSC / TK'            },
-  { id: 1060, name: 'BT / Hyjal'          },
-];
 
 const CHAR_BATCH = 3;  // players per Fresh API character query
 const ENC_BATCH  = 3;  // players per Fresh API encounter-rankings query

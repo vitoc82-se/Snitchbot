@@ -1,5 +1,5 @@
 import { useState, Fragment } from 'react';
-import { CLASS_ORDER, POT_COLS } from '../lib/constants';
+import { CLASS_ORDER, POT_COLS, SHADOW_PROTECTION_SR, SHADOW_RESIST_RECOMMENDED } from '../lib/constants';
 import { isPrepReady, isPotRelevant, prepScore, prepMax, potionStatus, potionCount,
          relevantPotKeys, POTION_MIN_FIGHT_MS, classColor, weaponBuffType, DEFAULT_MANDATORY } from '../lib/scoring';
 import Cell from './Cell';
@@ -19,6 +19,23 @@ function PotionPill({ p, mandatory }) {
   const shortFight  = p.fightDurationMs != null && p.fightDurationMs < POTION_MIN_FIGHT_MS;
   const label = hasRelevant && shortFight ? '— <60s' : '—';
   return <span className="score-badge" style={{ color: '#7a7a7a' }}>{label}</span>;
+}
+
+// Shadow Res colour: green = recommended total, amber = buff-only / partial
+// gear, red = missing even the free +70 buff. Tanks don't wear SR → grey.
+function srColor(p) {
+  const sr = p.shadowResist || 0;
+  if (p.role === 'tank') return '#7a7a7a';
+  if (sr >= SHADOW_RESIST_RECOMMENDED) return '#5aad6f';
+  if (sr >= SHADOW_PROTECTION_SR) return '#f5c842';
+  return '#c45a4a';
+}
+
+function srTitle(p) {
+  const x = p.shadowResistParts;
+  if (!x) return undefined; // reports analysed before the breakdown existed
+  return `Buff ${x.buff} · Gear+gems ${x.gear} · Enchants ${x.enchants} · Flask/elixir ${x.consumables}`
+    + ` — recommended ${SHADOW_RESIST_RECOMMENDED}`;
 }
 
 const PRE_COLS_DEF = [
@@ -126,7 +143,8 @@ export default function PlayerTable({ players, tableView = 'pre', mandatory = DE
                         {showSR && (
                           <td className="center">
                             <span className="score-badge"
-                              style={{ color: (p.shadowResist || 0) >= 70 ? '#5aad6f' : (p.shadowResist || 0) > 0 ? '#f5c842' : '#c45a4a' }}>
+                              title={srTitle(p)}
+                              style={{ color: srColor(p) }}>
                               {p.shadowResist || 0}
                             </span>
                           </td>

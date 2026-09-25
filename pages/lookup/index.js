@@ -3,13 +3,10 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { classColor } from '../../lib/scoring';
+import { RAID_25_ZONE_IDS } from '../../lib/wcl-consumables';
 
 // ── Combined rating ──────────────────────────────────────────────────────────
 // 60% avg WCL rank % + 40% consumable compliance rate → WoW quality tier
-
-// 25-man raid zone IDs — Karazhan (1047) and Zul'Aman are excluded from consume scoring.
-// Add new zone IDs here as future 25-man content is released on Fresh servers.
-const RAID_25_ZONE_IDS = new Set([1048, 1056, 1060]); // Gruul/Mag, SSC/TK, BT/Hyjal
 
 // Enchant slot weights — sum to 100
 // Weapon+Head+Shoulder = 60 → Rare (blue), matching user's "blue rank minimum" rule

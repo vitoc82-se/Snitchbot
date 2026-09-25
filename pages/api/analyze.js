@@ -1,7 +1,8 @@
 import {
   WCL_TOKEN_URL, WCL_API_URL, PREPOT_WINDOW_MS,
   FLASK_IDS, FOOD_IDS, GUARDIAN_IDS, BATTLE_IDS, POTION_CAST_IDS, SCROLL_IDS, WEAPON_ENCHANT_IDS,
-  WF_ENCHANT_IDS, SHADOW_RESIST_ITEMS, SHADOW_RESIST_GEMS, SHADOW_PROTECTION_SR,
+  WF_ENCHANT_IDS, SHADOW_RESIST_ITEMS, SHADOW_RESIST_GEMS, SHADOW_RESIST_ENCHANTS,
+  SHADOW_RESIST_AURAS, SHADOW_PROTECTION_SR, MARK_OF_THE_WILD_SR,
 } from '../../lib/constants';
 import { trackAnalysis, redisGet, redisSet } from '../../lib/redis';
 
@@ -242,15 +243,20 @@ export default async function handler(req, res) {
         if (!playerMap[playerName]) {
           playerMap[playerName] = emptyPlayer(playerName, rosterEntry.type, roleMap[playerName] || 'dps');
         }
-        // Shadow resistance: buff (+70, same-school buffs don't stack so take
-        // presence, not sum) plus per-item and per-gem SR from the gear snapshot.
-        let buffSR = 0;
+        // Shadow resistance at pull. Shadow Protection / SR Aura (+70) and
+        // Mark / Gift of the Wild (+25) are "does not stack" auras → take the
+        // highest. Resist flasks + Gift of Arthas stack on top, as do gear,
+        // gems and permanent enchants (cloak, armor kit, head glyph).
+        let buffSR = 0, consSR = 0;
         (event.auras || []).forEach(aura => {
           const selfApplied = aura.source === event.sourceID;
           const name = (auraMap[aura.ability] || aura.name || '').toLowerCase();
           if (name.includes('shadow protection') || name.includes('shadow resistance')) {
-            buffSR = SHADOW_PROTECTION_SR;
+            buffSR = Math.max(buffSR, SHADOW_PROTECTION_SR);
+          } else if (name.includes('mark of the wild') || name.includes('gift of the wild')) {
+            buffSR = Math.max(buffSR, MARK_OF_THE_WILD_SR);
           }
+          consSR += SHADOW_RESIST_AURAS[aura.ability] || 0;
           if (selfApplied && SCROLL_IDS.has(aura.ability)) {
             playerMap[playerName].scrolls++;
             return;
@@ -258,7 +264,7 @@ export default async function handler(req, res) {
           const cat = detectBuff(auraMap[aura.ability] || '', aura.ability, selfApplied);
           if (cat) playerMap[playerName][cat] = true;
         });
-        let gearSR = 0;
+        let gearSR = 0, enchSR = 0;
         (event.gear || []).forEach(slot => {
           const cat = WEAPON_ENCHANT_IDS[slot.temporaryEnchant];
           if (cat) playerMap[playerName][cat] = true;
@@ -266,8 +272,10 @@ export default async function handler(req, res) {
           if (WF_ENCHANT_IDS.has(slot.temporaryEnchant)) playerMap[playerName].windfury = true;
           gearSR += SHADOW_RESIST_ITEMS[slot.id] || 0;
           (slot.gems || []).forEach(g => { gearSR += SHADOW_RESIST_GEMS[g.id] || 0; });
+          enchSR += SHADOW_RESIST_ENCHANTS[slot.permanentEnchant] || 0;
         });
-        playerMap[playerName].shadowResist = buffSR + gearSR;
+        playerMap[playerName].shadowResist = buffSR + consSR + gearSR + enchSR;
+        playerMap[playerName].shadowResistParts = { buff: buffSR, consumables: consSR, gear: gearSR, enchants: enchSR };
       });
 
       // Merge cast-event potions
