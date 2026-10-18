@@ -11,11 +11,11 @@ Snitchbot (package name `snitchbot`, public site snitchbot.app) reads Warcraft L
 - Hosting: Vercel serverless. The in-app readme page says it auto-builds from GitHub `main`.
 
 ## How it is organised
-- `pages/` – screens: `index.js` (home, renders `components/SnitchbotApp.jsx`), `lookup`, `guild`, `loot`, `reports/[code]`, `dashboard`, `characters`, `compare`, `settings`, `suggest`, `admin`, `readme` (in-app docs).
-- `pages/api/` – server routes: `analyze`, `lookup/*`, `guild/*`, `loot/*`, `reports/*`, `settings/buffs`, `bot/channels`, `admin`, `debug_*`.
+- `pages/` – screens: `index.js` (home, renders `components/SnitchbotApp.jsx`), `lookup`, `guild`, `loot`, `reports/[code]`, `dashboard`, `characters`, `compare`, `settings`, `suggest`, `admin`, `live` (active-time % per boss kill), `readme` (in-app docs).
+- `pages/api/` – server routes: `analyze`, `activity`, `players/*`, `lookup/*`, `guild/*`, `loot/*`, `reports/*`, `settings/buffs`, `bot/channels`, `admin`, `debug_*`.
 - `lib/` – `constants.js` (buff/spell ID lists), `scoring.js`, `wcl.js`, `wcl-consumables.js`, `raid-week.js`, `loot-raids.js`, `redis.js`, `db.js`.
 - `components/` – table, player panel, rankings, loading UI.
-- Tables seen in code: `users`, `reports`, `user_settings`, `user_characters`, `player_lookup_profiles`, `player_lookup_bosses`, `loot_sessions`, `loot_entries`, `suggestions`, `bot_guild_channels`, `guild_lookup_cache`.
+- Tables seen in code: `users`, `reports`, `user_settings`, `user_characters`, `player_lookup_profiles`, `player_lookup_bosses`, `player_lookup_weeks`, `loot_sessions`, `loot_entries`, `suggestions`, `bot_guild_channels`, `guild_lookup_cache`.
 
 ## How to run, test and ship
 - `npm install`, then `npm run dev` (run locally), `npm run build`, `npm start`. These are the only scripts in `package.json`.
