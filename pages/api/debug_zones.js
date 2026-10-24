@@ -8,6 +8,18 @@ export default async function handler(req, res) {
   const { name = 'Vitok', server = 'thunderstrike', region = 'EU' } = req.query;
 
   try {
+    // ?code=<report> : show the report's zone + a few players (name/server) to feed the scan below
+    if (req.query.code) {
+      const d = await wclFreshQuery(`
+        query($c:String!) { reportData { report(code:$c) {
+          zone { id name }
+          fights(killType:Encounters) { name encounterID kill }
+          masterData { actors(type:"Player") { name server } }
+        }}}
+      `, { c: req.query.code });
+      const rep = d?.reportData?.report;
+      return res.json({ zone: rep?.zone, fights: rep?.fights, players: (rep?.masterData?.actors || []).slice(0, 5) });
+    }
     // Scan zone IDs in batches of 20 to find which ones work
     const ranges = [
       [1000,1020], [1020,1040], [1040,1060], [1060,1080]
